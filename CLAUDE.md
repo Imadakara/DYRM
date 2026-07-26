@@ -1,0 +1,153 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+DYRM (*Do You Read Me?*) — a first-person simulator/puzzle game about operating a laser-relay
+communication station in orbit around Neptune (year 2426). The player decodes message addresses
+(`Sector: H-17 / Cluster: Orion / Relay: 8 / Mirror: C`), locates the target on in-game star charts,
+and aims a laser to relay the message — under increasing equipment failures, encryption, queues and
+time pressure. Genre: Simulation · Puzzle · Time Management · Sci-Fi · First Person.
+
+**Current state: no code, scenes or resources exist yet.** Only `project.godot`, `icon.svg`,
+`.gitignore`/`.editorconfig`/`.gitattributes` are in place. The first implementation task is ТЗ-000
+("Игровое окружение"), which scaffolds `scenes/`, `src/`, `resources/`, `materials/`, `tools/`.
+
+## Two-repository split
+
+Design docs and code live in **separate repositories on purpose** — documentation outlives several
+code iterations:
+
+- **`DYRM`** (this repo): code, scenes, resources, tests, Claude Code skills.
+- **`DYRM Docs`** (sibling repo, not this one): concept doc, GDD, and per-system technical specs
+  (ТЗ). Layout: `Идея игры - DYRM.md` (concept/MVP), `ГДД - Перечень систем.md` (registry of all 53
+  systems), `ТЗ/ТЗ-NNN — Название.md` (one spec per system), `ТЗ/_ШАБЛОН ТЗ.md` (template mirror).
+
+Workflow: **ГДД (what the system is) → ТЗ (how to build it) → Claude Code implementation → review
+against acceptance criteria.** One GDD system = one ТЗ document = one Claude Code task; never mix
+systems in a single task — scope boundaries are the main quality-control lever. Each ТЗ contains a
+self-contained, copy-pasteable prompt for Claude Code in its section 13.
+
+ТЗ naming: `ТЗ-NNN — Название.md`, where `NNN` is the GDD system number with the dot removed
+(`0.1`→`010`, `2.7`→`027`, a whole block→`000`).
+
+## Writing/updating ТЗ specs
+
+Use the `dyrm-tz` skill (`.claude/skills/dyrm-tz/`) for drafting or revising ТЗ documents — it
+encodes the canonical template, the process, and the five most common mistakes (scope creep,
+unverifiable requirements, non-self-contained prompts, unsourced numbers, over-specifying tooling).
+Validate a spec with:
+
+```bash
+python3 .claude/skills/dyrm-tz/scripts/validate_tz.py "путь/к/ТЗ-NNN — Название.md"
+```
+
+This checks requirement/acceptance-criteria coverage, ID uniqueness, prompt self-sufficiency, and
+file-tree consistency — not semantic correctness (that's the template's section 14 checklist, read
+by eye).
+
+## Tech stack and constraints
+
+| | |
+|---|---|
+| Engine | Godot 4.7, Forward+ renderer |
+| Language | GDScript only — no C#, no GDExtension, no third-party addons |
+| Physics | Jolt Physics |
+| Graphics driver | D3D12 on Windows |
+| Target | Desktop, 1920×1080, ≥60 FPS on a laptop iGPU |
+| API compatibility | Use only API stable since **Godot 4.2**, even though the project builds on 4.7 |
+
+## Code conventions (apply project-wide)
+
+- Static typing is mandatory for every variable, parameter and return value. `Variant` only where
+  the type is genuinely unknown.
+- Every script declares `class_name`.
+- Identifiers in English: `snake_case` for functions/variables, `PascalCase` for classes/nodes.
+  Comments explaining formulas and physical constants are written **in Russian**.
+- Reference requirement IDs in comments where useful (`# FR-12`); mark deferred work as
+  `TODO(ТЗ-027)`, naming the owning spec.
+- **No numeric literals in scripts** except universal constants (`KM_PER_AU`, `G`, `TAU`). All
+  tunable parameters live in `.tres` resources.
+- Config is **flat, typed `@export`** — `Resource`-in-`Resource` nesting no deeper than one level.
+- Inspectable state is exposed via getters and public properties, never derived from private state
+  by callers.
+- **No autoloads** without explicit justification in a ТЗ. Cross-node references go through
+  `@export var ... : NodePath` or `@onready`.
+- Don't rely on a fixed autoload list or on root `SceneTree` child indices — the MCP tooling injects
+  a temporary autoload into the running project. Reference nodes by name, group, or exported path.
+- Every script must parse independently: no cyclic `preload`, no parse-time dependency on an
+  autoload.
+- No allocations in hot `_process` loops.
+- The project must open in the editor with **zero errors or warnings** in the console.
+
+### Debugging conventions
+
+- Every debug key binding needs a **programmatic twin** (a public method or Godot action) — physical
+  input is blocked when the project runs headless/backgrounded.
+- Visual checks are tied to **named, deterministic camera angles** switchable in code.
+- Diagnostics aren't `print()`-only; important state is mirrored into the live scene tree.
+- Auto-checkable diagnostics render to `Control` nodes, not just `_draw()` or 3D text.
+
+## Coordinates and units (fixed by ТЗ-000, applies to every spatial system)
+
+| Quantity | Unit |
+|---|---|
+| Scene length | 1 meter = 1 Godot unit |
+| Data length | kilometer |
+| Planetary semi-major axes | AU, `KM_PER_AU = 149 597 870.7` |
+| Time | days since J2000.0 epoch (`epoch_days`) |
+| Angles in data | degrees (converted to radians immediately in code) |
+| Angles in API | radians, except azimuth/elevation |
+
+Godot uses a right-handed system, **+Y up**, **−Z forward**. The J2000 ecliptic plane maps to the
+**XZ** plane via `godot_vec = Vector3(ecl.x, ecl.z, -ecl.y)`. This conversion exists in **exactly
+one place**, `OrbitalMath.ecliptic_to_godot()` — never duplicate it.
+
+Aiming basis `Station/AimingReference` (fixed to the station truss): **+Y** = local zenith (Neptune
+center → station), **−Z** = orbital velocity vector, **+X** completes the right-handed triad.
+**Azimuth**: in the XZ plane, clockwise from −Z viewed from +Y, range [0°, 360°). **Elevation**:
+angle above the XZ plane, range [−90°, +90°]. These conversions must be geometrically exact — a
+catalog entry like "Uranus, azimuth 143°" must have the beam actually point at the rendered Uranus.
+
+## Tooling (Godot MCP)
+
+Development uses two MCP servers; default to the runtime one, fall back to the second for
+UID operations or as a backup launch path:
+
+- `godot-runtime` (primary): headless scene/node/script/signal/autoload editing, project search,
+  pre-launch validation, plus a live bridge into the running project (screenshots, input
+  simulation, scene-tree traversal, GDScript execution in the `SceneTree`).
+- `godot` (secondary): editor/project launch, output reading, UID management (Godot 4.4+).
+
+The live bridge is a temporary autoload with a localhost TCP listener, injected on launch and
+removed on stop — it leaves no trace in the repo. It only works against a running project, so the
+project must be launched after each work stage to verify it. In background mode the window is
+moved off-screen and physical input is blocked; output reading isn't available when attaching to an
+externally-launched process. These constraints are why the "no fixed autoload list", "programmatic
+debug twins", and "named deterministic camera angles" rules above exist.
+
+## Tests
+
+ТЗ-000 defines the autotest entry point (not yet present in the repo):
+
+```bash
+godot --headless --path . --script res://tools/run_tests.gd
+```
+
+Expected output: one line per test, ending in `RESULT: <N> passed, 0 failed`, exit code 0.
+
+## Known documentation discrepancies
+
+Flagged during ТЗ-000 authoring, pending owner decision — don't be surprised by these when they
+surface during implementation (see README.md section 10 for full detail):
+
+- System 1.5 (audio) is tagged `[Ext]` in GDD body text but `Core` in the summary table — treat as
+  `Core`.
+- Block 0 is missing from the GDD priority summary table even though both its systems are `[MVP]`.
+- The crew module sits on a rotating ring (~28s sky rotation period) — open question Q-02 in
+  ТЗ-000.
+- In-universe date is 2426; orbital mechanics is computed from J2000 — keep them decoupled (Q-01 in
+  ТЗ-000).
+- GDD/ТЗ-000 say "Godot 4.4+"; the project is actually on 4.7 — resolved by the "API stable since
+  4.2" constraint above.
