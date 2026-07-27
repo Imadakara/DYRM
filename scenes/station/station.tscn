@@ -1,0 +1,199 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/station_root.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/station/ring_rotator.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/station_default.tres" id="3"]
+[ext_resource type="Resource" path="res://materials/mat_hull.tres" id="4"]
+[ext_resource type="Resource" path="res://materials/mat_radiator.tres" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/station/modules/module_control_deck.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/station/modules/corridor_segment.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/station/modules/module_habitat.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/station/modules/module_engineering.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/station/modules/module_docking.tscn" id="10"]
+[ext_resource type="PackedScene" path="res://scenes/station/equipment/laser_mount.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://scenes/station/equipment/dish_antenna.tscn" id="12"]
+
+[sub_resource type="BoxMesh" id="RadiatorMesh"]
+size = Vector3(8, 30, 0.3)
+
+[sub_resource type="CylinderMesh" id="ReactorMesh"]
+top_radius = 2.0
+bottom_radius = 2.5
+height = 4.0
+
+[node name="Station" type="Node3D"]
+script = ExtResource("1")
+config = ExtResource("3")
+solar_system_path = NodePath("../SolarSystem")
+game_clock_path = NodePath("../GameClock")
+
+[node name="AimingReference" type="Node3D" parent="."]
+
+[node name="RotatingRing" type="Node3D" parent="."]
+script = ExtResource("2")
+config = ExtResource("3")
+game_clock_path = NodePath("../../GameClock")
+
+[node name="Spoke_1" type="AnimatableBody3D" parent="RotatingRing"]
+transform = Transform3D(-0.7071067811865476, 0.7071067811865476, 0, 0, 0, 1, 0.7071067811865476, 0.7071067811865476, 0, 23.5113, 0, 23.5113)
+
+[node name="Mesh" type="MeshInstance3D" parent="RotatingRing/Spoke_1"]
+surface_material_override/0 = ExtResource("4")
+
+[node name="Collision" type="CollisionShape3D" parent="RotatingRing/Spoke_1"]
+
+[node name="Spoke_2" type="AnimatableBody3D" parent="RotatingRing"]
+transform = Transform3D(-0.7071067811865476, -0.7071067811865475, 0, 0, 0, 1, -0.7071067811865475, 0.7071067811865476, 0, -23.5113, 0, 23.5113)
+
+[node name="Mesh" type="MeshInstance3D" parent="RotatingRing/Spoke_2"]
+surface_material_override/0 = ExtResource("4")
+
+[node name="Collision" type="CollisionShape3D" parent="RotatingRing/Spoke_2"]
+
+[node name="Spoke_3" type="AnimatableBody3D" parent="RotatingRing"]
+transform = Transform3D(0.7071067811865475, -0.7071067811865477, 0, 0, 0, 1, -0.7071067811865477, -0.7071067811865475, 0, -23.5113, 0, -23.5113)
+
+[node name="Mesh" type="MeshInstance3D" parent="RotatingRing/Spoke_3"]
+surface_material_override/0 = ExtResource("4")
+
+[node name="Collision" type="CollisionShape3D" parent="RotatingRing/Spoke_3"]
+
+[node name="Spoke_4" type="AnimatableBody3D" parent="RotatingRing"]
+transform = Transform3D(0.7071067811865477, 0.7071067811865474, 0, 0, 0, 1, 0.7071067811865474, -0.7071067811865477, 0, 23.5113, 0, -23.5113)
+
+[node name="Mesh" type="MeshInstance3D" parent="RotatingRing/Spoke_4"]
+surface_material_override/0 = ExtResource("4")
+
+[node name="Collision" type="CollisionShape3D" parent="RotatingRing/Spoke_4"]
+
+[node name="Arcs" type="Node3D" parent="RotatingRing"]
+
+[node name="Module_ControlDeck" parent="RotatingRing/Arcs" instance=ExtResource("6")]
+module_id = &"control_deck"
+display_name = "Рубка связи"
+angle_start_deg = 0.0
+angle_end_deg = 45.0
+config = ExtResource("3")
+
+[node name="Corridor_A" parent="RotatingRing/Arcs" instance=ExtResource("7")]
+module_id = &"corridor_a"
+display_name = "Коридор A"
+angle_start_deg = 45.0
+angle_end_deg = 90.0
+config = ExtResource("3")
+
+[node name="Module_Habitat" parent="RotatingRing/Arcs" instance=ExtResource("8")]
+module_id = &"habitat"
+display_name = "Спальный отсек"
+angle_start_deg = 90.0
+angle_end_deg = 135.0
+config = ExtResource("3")
+
+[node name="Corridor_B" parent="RotatingRing/Arcs" instance=ExtResource("7")]
+module_id = &"corridor_b"
+display_name = "Коридор B"
+angle_start_deg = 135.0
+angle_end_deg = 180.0
+config = ExtResource("3")
+
+[node name="Module_Engineering" parent="RotatingRing/Arcs" instance=ExtResource("9")]
+module_id = &"engineering"
+display_name = "Технический отсек"
+angle_start_deg = 180.0
+angle_end_deg = 225.0
+config = ExtResource("3")
+
+[node name="Corridor_C" parent="RotatingRing/Arcs" instance=ExtResource("7")]
+module_id = &"corridor_c"
+display_name = "Коридор C"
+angle_start_deg = 225.0
+angle_end_deg = 270.0
+config = ExtResource("3")
+
+[node name="Module_Docking" parent="RotatingRing/Arcs" instance=ExtResource("10")]
+module_id = &"docking"
+display_name = "Стыковочно-шлюзовой отсек"
+angle_start_deg = 270.0
+angle_end_deg = 315.0
+config = ExtResource("3")
+
+[node name="Corridor_D" parent="RotatingRing/Arcs" instance=ExtResource("7")]
+module_id = &"corridor_d"
+display_name = "Коридор D"
+angle_start_deg = 315.0
+angle_end_deg = 360.0
+config = ExtResource("3")
+
+[node name="SpokeHatch_1" type="Marker3D" parent="RotatingRing/Arcs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.5779, 0, 41.5779)
+
+[node name="SpokeHatch_2" type="Marker3D" parent="RotatingRing/Arcs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -41.5779, 0, 41.5779)
+
+[node name="SpokeHatch_3" type="Marker3D" parent="RotatingRing/Arcs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -41.5779, 0, -41.5779)
+
+[node name="SpokeHatch_4" type="Marker3D" parent="RotatingRing/Arcs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.5779, 0, -41.5779)
+
+[node name="DespunTruss" type="Node3D" parent="."]
+
+[node name="Hub" type="StaticBody3D" parent="DespunTruss"]
+
+[node name="Mesh" type="MeshInstance3D" parent="DespunTruss/Hub"]
+surface_material_override/0 = ExtResource("4")
+
+[node name="Collision" type="CollisionShape3D" parent="DespunTruss/Hub"]
+
+[node name="LaserMount_1" parent="DespunTruss" instance=ExtResource("11")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22, 0)
+mount_id = &"LT-1"
+azimuth_half_range_deg = 120.0
+elevation_half_range_deg = 90.0
+
+[node name="LaserMount_2" parent="DespunTruss" instance=ExtResource("11")]
+transform = Transform3D(1, 0, 0, 0, -1, 0, 0, 0, -1, 0, -22, 0)
+mount_id = &"LT-2"
+azimuth_half_range_deg = 120.0
+elevation_half_range_deg = 90.0
+
+[node name="LaserMount_3" parent="DespunTruss" instance=ExtResource("11")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, 0)
+mount_id = &"LT-3"
+azimuth_half_range_deg = 180.0
+elevation_half_range_deg = 60.0
+
+[node name="DishAntenna_1" parent="DespunTruss" instance=ExtResource("12")]
+transform = Transform3D(-0.8660254037844386, 0.5000000000000001, 0, 0, 0, 1, 0.5000000000000001, 0.8660254037844386, 0, 6.0, 0, 10.3923)
+antenna_id = &"RX-1"
+elevation_half_range_deg = 80.0
+
+[node name="DishAntenna_2" parent="DespunTruss" instance=ExtResource("12")]
+transform = Transform3D(-0.49999999999999994, -0.8660254037844387, 0, 0, 0, 1, -0.8660254037844387, 0.49999999999999994, 0, -10.3923, 0, 6.0)
+antenna_id = &"RX-2"
+elevation_half_range_deg = 80.0
+
+[node name="DishAntenna_3" parent="DespunTruss" instance=ExtResource("12")]
+transform = Transform3D(0.8660254037844385, -0.5000000000000004, 0, 0, 0, 1, -0.5000000000000004, -0.8660254037844385, 0, -6.0, 0, -10.3923)
+antenna_id = &"RX-3"
+elevation_half_range_deg = 80.0
+
+[node name="DishAntenna_4" parent="DespunTruss" instance=ExtResource("12")]
+transform = Transform3D(0.5000000000000004, 0.8660254037844384, 0, 0, 0, 1, 0.8660254037844384, -0.5000000000000004, 0, 10.3923, 0, -6.0)
+antenna_id = &"RX-4"
+elevation_half_range_deg = 80.0
+
+[node name="Radiator_1" type="MeshInstance3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
+mesh = SubResource("RadiatorMesh")
+surface_material_override/0 = ExtResource("5")
+
+[node name="Radiator_2" type="MeshInstance3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, 0)
+mesh = SubResource("RadiatorMesh")
+surface_material_override/0 = ExtResource("5")
+
+[node name="ReactorBlock" type="MeshInstance3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -26, 0)
+mesh = SubResource("ReactorMesh")
+surface_material_override/0 = ExtResource("4")

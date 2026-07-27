@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+
+[sub_resource type="Resource" id="Orbit_Saturn"]
+script = ExtResource("2")
+semi_major_axis_km = 1426666414.179921
+eccentricity = 0.05386179
+inclination_deg = 2.48599187
+mean_longitude_deg = 49.95424423
+longitude_perihelion_deg = 92.59887831
+longitude_node_deg = 113.66242448
+period_days = 10759.22
+
+[resource]
+script = ExtResource("1")
+display_name = "Сатурн"
+body_id = &"saturn"
+body_type = 1
+parent_body = &""
+radius_km = 58232.0
+orbit = SubResource("Orbit_Saturn")
+rotation_period_days = 0.44401
+axial_tilt_deg = 26.73
+albedo = 0.342
+base_color = Color(0.85098, 0.752941, 0.541176, 1)
+emissive = false
+brightness = 1.0

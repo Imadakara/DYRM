@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SpaceScaleConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/space_scale_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+local_radius_m = 2000.0
+compression_k = 220.0
+compression_d0_km = 1000000.0
+min_angular_diameter_deg = 0.12
+deep_near = 0.1
+deep_far = 10000.0

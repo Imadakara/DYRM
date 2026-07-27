@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Солнце"
+body_id = &"sun"
+body_type = 0
+parent_body = &""
+radius_km = 696340.0
+orbit = null
+rotation_period_days = 25.38
+axial_tilt_deg = 7.25
+albedo = 0.0
+base_color = Color(1, 0.956863, 0.909804, 1)
+emissive = true
+brightness = 1.0

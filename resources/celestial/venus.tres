@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+
+[sub_resource type="Resource" id="Orbit_Venus"]
+script = ExtResource("2")
+semi_major_axis_km = 108209474.53737916
+eccentricity = 0.00677672
+inclination_deg = 3.39467605
+mean_longitude_deg = 181.979095
+longitude_perihelion_deg = 131.60246718
+longitude_node_deg = 76.67984255
+period_days = 224.701
+
+[resource]
+script = ExtResource("1")
+display_name = "Венера"
+body_id = &"venus"
+body_type = 1
+parent_body = &""
+radius_km = 6051.8
+orbit = SubResource("Orbit_Venus")
+rotation_period_days = -243.025
+axial_tilt_deg = 177.36
+albedo = 0.689
+base_color = Color(0.909804, 0.835294, 0.658824, 1)
+emissive = false
+brightness = 1.0

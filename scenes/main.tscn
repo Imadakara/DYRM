@@ -1,0 +1,119 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://src/core/game_clock.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/environment/solar_system.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/environment/deep_space_layer.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/station/station.tscn" id="4"]
+[ext_resource type="Script" path="res://src/core/debug_fly_camera.gd" id="5"]
+[ext_resource type="Script" path="res://src/core/debug_overlay.gd" id="6"]
+
+[sub_resource type="QuadMesh" id="BackgroundQuadMesh"]
+size = Vector2(8000, 8000)
+
+[sub_resource type="Environment" id="MainEnvironment"]
+background_mode = 1
+background_color = Color(0, 0, 0, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.02
+tonemap_mode = 3
+glow_enabled = true
+
+[node name="Main" type="Node3D"]
+
+[node name="GameClock" type="Node" parent="."]
+script = ExtResource("1")
+
+[node name="SolarSystem" parent="." instance=ExtResource("2")]
+
+[node name="DeepSpace" parent="." instance=ExtResource("3")]
+
+[node name="Station" parent="." instance=ExtResource("4")]
+
+[node name="Lighting" type="Node3D" parent="."]
+
+[node name="SunLight" type="DirectionalLight3D" parent="Lighting"]
+transform = Transform3D(-0.8298530692629954, -0.0023603345637715598, -0.557976981833062, 0, 0.9999910529731397, -0.004230126909609664, 0.557981974112772, -0.0035103837993115694, -0.8298456445452946, 0, 0, 0)
+light_color = Color(1, 0.956863, 0.909804, 1)
+light_energy = 0.15
+shadow_enabled = true
+
+[node name="NeptuneFill" type="DirectionalLight3D" parent="Lighting"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 0)
+light_color = Color(0.231373, 0.384314, 0.768627, 1)
+light_energy = 0.08
+shadow_enabled = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting"]
+environment = SubResource("MainEnvironment")
+
+[node name="MainCamera" type="Camera3D" parent="."]
+transform = Transform3D(0.7071067811865475, -0.24951314462072216, 0.6616216370868464, 0, 0.935674292327708, 0.35286487311298476, -0.7071067811865475, -0.24951314462072216, 0.6616216370868464, 150, 80, 150)
+near = 0.05
+far = 4000.0
+script = ExtResource("5")
+preset_nodes = Array[NodePath]([NodePath("../CameraPresets/Preset_1"), NodePath("../CameraPresets/Preset_2"), NodePath("../CameraPresets/Preset_3"), NodePath("../CameraPresets/Preset_4"), NodePath("../CameraPresets/Preset_5")])
+
+[node name="BackgroundQuad" type="MeshInstance3D" parent="MainCamera"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3900)
+mesh = SubResource("BackgroundQuadMesh")
+
+[node name="CameraPresets" type="Node3D" parent="."]
+
+[node name="Preset_1" type="Marker3D" parent="CameraPresets"]
+transform = Transform3D(0.7071067811865475, -0.24951314462072216, 0.6616216370868464, 0, 0.935674292327708, 0.35286487311298476, -0.7071067811865475, -0.24951314462072216, 0.6616216370868464, 150, 80, 150)
+
+[node name="Preset_2" type="Marker3D" parent="CameraPresets"]
+transform = Transform3D(-0.0, -0.9446277779230174, -0.32814381172928153, 1.0, 0.0, -0.0, 0.0, -0.32814381172928153, 0.9446277779230174, 54.046952651910274, 0.0, 22.38698079335775)
+
+[node name="Preset_3" type="Marker3D" parent="CameraPresets"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 120, 40, 0)
+
+[node name="Preset_4" type="Marker3D" parent="CameraPresets"]
+transform = Transform3D(0.8298530692629954, -0.0023603345637715598, 0.557976981833062, 0, 0.9999910529731397, 0.004230126909609664, -0.557981974112772, -0.0035103837993115694, 0.8298456445452946, 83.6965472749593, 0.6345190364414497, 124.4768466817942)
+
+[node name="Preset_5" type="Marker3D" parent="CameraPresets"]
+transform = Transform3D(0.7071067811865476, -0.19245008972987532, 0.6804138174397717, 0, 0.9622504486493764, 0.27216552697590873, -0.7071067811865476, -0.19245008972987532, 0.6804138174397717, 25, 30, 25)
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("6")
+game_clock_path = NodePath("../GameClock")
+station_root_path = NodePath("../Station")
+solar_system_path = NodePath("../SolarSystem")
+
+[node name="Panel" type="PanelContainer" parent="DebugOverlay"]
+offset_right = 420.0
+offset_bottom = 220.0
+
+[node name="Labels" type="VBoxContainer" parent="DebugOverlay/Panel"]
+layout_mode = 2
+
+[node name="FpsLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FPS: 0"
+
+[node name="EpochLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "epoch_days: 0"
+
+[node name="TimeScaleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "time_scale: 1x"
+
+[node name="StationPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "station (km): 0, 0, 0"
+
+[node name="RingAngleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ring angle: 0 deg"
+
+[node name="BodiesLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""

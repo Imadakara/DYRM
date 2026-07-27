@@ -1,0 +1,44 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/station_module.gd" id="1"]
+[ext_resource type="Resource" path="res://materials/mat_interior.tres" id="2"]
+[ext_resource type="Resource" path="res://materials/mat_glass.tres" id="3"]
+
+[sub_resource type="BoxMesh" id="CupolaMesh"]
+size = Vector3(2.0, 0.05, 3.0)
+
+[node name="ModuleControlDeck" type="Node3D"]
+script = ExtResource("1")
+hull_material = ExtResource("2")
+
+[node name="Spawn" type="Marker3D" parent="."]
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+
+[node name="Collision" type="AnimatableBody3D" parent="."]
+
+[node name="Panel_Registrar" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.3808, 1.2, 19.7586)
+
+[node name="Panel_Decoder" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.0439, -1.2, 20.6788)
+
+[node name="Panel_TxLog" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.6916, 1.2, 21.5933)
+
+[node name="Panel_StarMap" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.3241, -1.2, 22.5018)
+
+[node name="Panel_Transmitter" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.9416, 1.2, 23.404)
+
+[node name="Panel_TxStatus" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.544, -1.2, 24.2998)
+
+[node name="Panel_StationControl" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.1316, 1.2, 25.1887)
+
+[node name="Cupola" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, 0.9945218953682733, -0.10452846326765347, 1, 0, 0, 0, 0.10452846326765347, 0.9945218953682733, 59.64645067471219, 0, 6.269094584477517)
+mesh = SubResource("CupolaMesh")
+surface_material_override/0 = ExtResource("3")

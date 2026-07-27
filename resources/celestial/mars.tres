@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+
+[sub_resource type="Resource" id="Orbit_Mars"]
+script = ExtResource("2")
+semi_major_axis_km = 227943822.42757303
+eccentricity = 0.0933941
+inclination_deg = 1.84969142
+mean_longitude_deg = -4.55343205
+longitude_perihelion_deg = -23.94362959
+longitude_node_deg = 49.55953891
+period_days = 686.98
+
+[resource]
+script = ExtResource("1")
+display_name = "Марс"
+body_id = &"mars"
+body_type = 1
+parent_body = &""
+radius_km = 3389.5
+orbit = SubResource("Orbit_Mars")
+rotation_period_days = 1.02595
+axial_tilt_deg = 25.19
+albedo = 0.25
+base_color = Color(0.709804, 0.376471, 0.235294, 1)
+emissive = false
+brightness = 1.0

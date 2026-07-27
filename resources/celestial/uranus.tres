@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+
+[sub_resource type="Resource" id="Orbit_Uranus"]
+script = ExtResource("2")
+semi_major_axis_km = 2870658170.655732
+eccentricity = 0.04725744
+inclination_deg = 0.77263783
+mean_longitude_deg = 313.23810451
+longitude_perihelion_deg = 170.9542763
+longitude_node_deg = 74.01692503
+period_days = 30685.4
+
+[resource]
+script = ExtResource("1")
+display_name = "Уран"
+body_id = &"uranus"
+body_type = 1
+parent_body = &""
+radius_km = 25362.0
+orbit = SubResource("Orbit_Uranus")
+rotation_period_days = -0.71833
+axial_tilt_deg = 97.77
+albedo = 0.3
+base_color = Color(0.560784, 0.831373, 0.862745, 1)
+emissive = false
+brightness = 1.0

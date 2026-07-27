@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/scaled_space_layer.gd" id="1"]
+[ext_resource type="Shader" path="res://materials/mat_body_unlit.gdshader" id="2"]
+[ext_resource type="Shader" path="res://materials/mat_deep_background.gdshader" id="3"]
+[ext_resource type="Resource" path="res://resources/space_scale_default.tres" id="4"]
+
+[sub_resource type="ShaderMaterial" id="BodyMat"]
+shader = ExtResource("2")
+
+[sub_resource type="ShaderMaterial" id="BackgroundMat"]
+shader = ExtResource("3")
+
+[sub_resource type="Environment" id="DeepEnvironment"]
+background_mode = 1
+background_color = Color(0, 0, 0, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.0
+tonemap_mode = 3
+glow_enabled = true
+
+[node name="DeepSpace" type="Node3D"]
+script = ExtResource("1")
+config = ExtResource("4")
+solar_system_path = NodePath("../SolarSystem")
+main_camera_path = NodePath("../MainCamera")
+background_quad_path = NodePath("../MainCamera/BackgroundQuad")
+body_material = SubResource("BodyMat")
+background_material = SubResource("BackgroundMat")
+
+[node name="DeepViewport" type="SubViewport" parent="."]
+transparent_bg = false
+handle_input_locally = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="DeepViewport"]
+environment = SubResource("DeepEnvironment")
+
+[node name="DeepCamera" type="Camera3D" parent="DeepViewport"]
+
+[node name="Starfield" type="MeshInstance3D" parent="DeepViewport"]
+
+[node name="KuiperBelt" type="MultiMeshInstance3D" parent="DeepViewport"]
+
+[node name="Bodies" type="Node3D" parent="DeepViewport"]

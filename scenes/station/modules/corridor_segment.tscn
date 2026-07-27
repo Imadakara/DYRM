@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/station_module.gd" id="1"]
+[ext_resource type="Resource" path="res://materials/mat_interior.tres" id="2"]
+
+[node name="CorridorSegment" type="Node3D"]
+script = ExtResource("1")
+hull_material = ExtResource("2")
+
+[node name="Spawn" type="Marker3D" parent="."]
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+
+[node name="Collision" type="AnimatableBody3D" parent="."]

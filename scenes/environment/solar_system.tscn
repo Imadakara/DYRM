@@ -1,0 +1,20 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://src/environment/solar_system/solar_system.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="body_data_script"]
+[ext_resource type="Resource" path="res://resources/celestial/sun.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/celestial/mercury.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/celestial/venus.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/celestial/earth.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/celestial/mars.tres" id="6"]
+[ext_resource type="Resource" path="res://resources/celestial/jupiter.tres" id="7"]
+[ext_resource type="Resource" path="res://resources/celestial/saturn.tres" id="8"]
+[ext_resource type="Resource" path="res://resources/celestial/uranus.tres" id="9"]
+[ext_resource type="Resource" path="res://resources/celestial/neptune.tres" id="10"]
+[ext_resource type="Resource" path="res://resources/celestial/triton.tres" id="11"]
+
+[node name="SolarSystem" type="Node3D"]
+script = ExtResource("1")
+body_resources = Array[ExtResource("body_data_script")]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11")])
+game_clock_path = NodePath("../GameClock")
+observer_path = NodePath("../Station")
