@@ -8,10 +8,6 @@ signal state_changed(open: bool)
 
 @export var prompt_open_text: String = "Открыть дверь"
 @export var prompt_close_text: String = "Закрыть дверь"
-## Внешняя блокировка (лок-камера рукоять↔ступица, ГДД 000 Core Rule 5): пока
-## true, взаимодействие отклоняется независимо от enabled/дистанции.
-@export var forced_locked: bool = false
-@export var prompt_locked_text: String = "Заблокировано — идёт синхронизация"
 
 @export var leaf_width_m: float = 1.6
 @export var leaf_height_m: float = 2.3
@@ -46,9 +42,6 @@ func _ready() -> void:
 
 	_apply_state()
 
-func can_interact(from: Node3D) -> bool:
-	return super.can_interact(from) and not forced_locked
-
 func interact(from: Node3D) -> void:
 	if not can_interact(from):
 		return
@@ -79,8 +72,6 @@ func is_open() -> bool:
 	return _open
 
 func get_prompt() -> String:
-	if forced_locked:
-		return prompt_locked_text
 	return prompt_close_text if _open else prompt_open_text
 
 func _apply_state() -> void:

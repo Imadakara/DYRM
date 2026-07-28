@@ -230,18 +230,14 @@ func _test_gravity(station: StationRoot, cfg: StationConfig) -> void:
 	var details := ""
 	var expected_g: float = cfg.target_gravity_g * RingRotator.G_EARTH_M_S2
 	var axis: Vector3 = station.global_transform.basis.y
-	# Угловая скорость вращающейся сборки — оба модуля в ней, get_gravity_at()
-	# больше не может вывести ω из одной глобальной позиции (ГДД 000 ревизия
-	# 2026-07-28, despun-ступица) — тест сам передаёт ω явно.
-	var ring: Node3D = station.get_rotating_assembly()
-	var omega: float = (ring as RingRotator).angular_velocity_rad_s
 	for module in station.get_modules():
-		# module.global_position — сама точка монтажа, ровно на радиусе
-		# ring_radius_m (см. station_module.gd _place_self()); spawn_point
-		# смещён на 1 м к потолку и не годится для проверки «пол = R ровно».
-		var floor_point: Vector3 = module.global_position
+		var mid_angle_rad: float = deg_to_rad(0.0)
+		# читаем реальные границы дуги модуля, а не предполагаем их
+		mid_angle_rad = _module_mid_angle_rad(module)
+		var local_floor: Vector3 = Vector3(cos(mid_angle_rad), 0.0, sin(mid_angle_rad)) * cfg.ring_radius_m
+		var floor_point: Vector3 = module.global_transform * local_floor
 		var up: Vector3 = station.get_gravity_up_at(floor_point)
-		var g: Vector3 = station.get_gravity_at(floor_point, omega)
+		var g: Vector3 = station.get_gravity_at(floor_point)
 		if absf(up.length() - 1.0) > 0.01:
 			ok = false
 			details += "%s |up|=%.4f; " % [module.module_id, up.length()]
@@ -251,7 +247,12 @@ func _test_gravity(station: StationRoot, cfg: StationConfig) -> void:
 		if absf(g.length() - expected_g) > 0.01:
 			ok = false
 			details += "%s |g|=%.4f expected %.4f; " % [module.module_id, g.length(), expected_g]
-	_check("T-09 gravity at module floor points (2 modules)", ok, details)
+	_check("T-09 gravity at 8 floor points", ok, details)
+
+func _module_mid_angle_rad(module: StationModule) -> float:
+	# StationModule сам не хранит вычисленный mid_angle — читаем через доступные
+	# @export поля напрямую (angle_start_deg/angle_end_deg — публичные свойства).
+	return deg_to_rad((module.angle_start_deg + module.angle_end_deg) * 0.5)
 
 # T-10 -----------------------------------------------------------------
 func _test_epoch_roundtrip(solar_system: SolarSystem, game_clock: GameClock) -> void:
@@ -294,23 +295,25 @@ func _accumulate_aabb(node: Node, box: Array) -> void:
 
 # T-13 --------------------------------------------------------------------
 func _test_arcs(station: StationRoot) -> void:
-	var expected_ids: Array = ["control_room", "habitat"]
-	var ok: bool = station.get_modules().size() == 2
+	var expected_ids: Array = ["control_deck", "corridor_a", "habitat", "corridor_b",
+			"engineering", "corridor_c", "docking", "corridor_d"]
+	var ok: bool = station.get_modules().size() == 8
 	var details := ""
+	var total_span: float = 0.0
 	for id in expected_ids:
 		var m: StationModule = station.get_module(StringName(id))
 		if m == null:
 			ok = false
 			details += "missing %s; " % id
 			continue
+		total_span += m.angle_end_deg - m.angle_start_deg
 		if m.spawn_point == null:
 			ok = false
 			details += "%s no spawn; " % id
-		var radial_dist: float = Vector2(m.global_position.x, m.global_position.z).length()
-		if absf(radial_dist - station.config.ring_radius_m) > 0.01:
-			ok = false
-			details += "%s radius=%.4f; " % [id, radial_dist]
-	_check("T-13 2 modules (control_room, habitat), R=60m, spawns present", ok, details)
+	if absf(total_span - 360.0) > 0.01:
+		ok = false
+		details += "total_span=%.4f; " % total_span
+	_check("T-13 8 arcs, correct ids, 360 deg total, spawns present", ok, details)
 
 # T-14 -----------------------------------------------------------------
 func _test_laser_coverage(station: StationRoot) -> void:
@@ -357,28 +360,32 @@ func _test_rotating_ring(station: StationRoot, game_clock: GameClock) -> void:
 func _test_markers(station: StationRoot, cfg: StationConfig) -> void:
 	var ok := true
 	var details := ""
-	var control_room: StationModule = station.get_module(&"control_room")
+	var control_deck: StationModule = station.get_module(&"control_deck")
 	var panel_names: Array = ["Panel_Registrar", "Panel_Decoder", "Panel_TxLog", "Panel_StarMap",
 			"Panel_Transmitter", "Panel_TxStatus", "Panel_StationControl"]
 	for pname in panel_names:
-		var marker: Marker3D = control_room.get_node_or_null(pname)
+		var marker: Marker3D = control_deck.get_node_or_null(pname)
 		if marker == null:
 			ok = false
 			details += "missing %s; " % pname
 			continue
-		# Комната теперь плоская (не дуга тора) — высота над полом читается
-		# напрямую из локальной Y-координаты маркера (ГДД 000 ревизия
-		# 2026-07-28), а не выводится из радиуса.
 		var pos: Vector3 = marker.position
-		if pos.y < 0.9 or pos.y > 1.9:
+		var radial_dist: float = Vector2(pos.x, pos.z).length()
+		var height_above_floor: float = cfg.ring_radius_m - radial_dist
+		var clearance: float = absf(pos.y)
+		if height_above_floor < 0.9 or height_above_floor > 1.9:
 			ok = false
-			details += "%s height=%.3f; " % [pname, pos.y]
-	for attach_name in ["AttachPoint_1", "AttachPoint_2"]:
-		var marker: Marker3D = station.get_node_or_null("DespunTruss/%s" % attach_name)
+			details += "%s height=%.3f; " % [pname, height_above_floor]
+		if clearance < 0.8 or clearance > 1.5:
+			ok = false
+			details += "%s clearance=%.3f; " % [pname, clearance]
+	for i in range(1, 5):
+		var hatch_name: String = "SpokeHatch_%d" % i
+		var marker: Marker3D = station.get_node_or_null("RotatingRing/Arcs/%s" % hatch_name)
 		if marker == null:
 			ok = false
-			details += "missing %s; " % attach_name
-	_check("T-19 control-room panel markers and Block-3 attachment markers", ok, details)
+			details += "missing %s; " % hatch_name
+	_check("T-19 panel and spoke-hatch markers", ok, details)
 
 # T-17 -----------------------------------------------------------------------
 func _test_physics_containment(station: StationRoot) -> void:
@@ -412,7 +419,7 @@ func _test_physics_containment(station: StationRoot) -> void:
 # ─── ТЗ-100: игрок и станция от первого лица ──────────────────────────────
 
 func _run_player_tests(main: Node, station: StationRoot, cfg: StationConfig) -> void:
-	var ring: Node3D = station.get_rotating_assembly()
+	var ring: Node3D = station.get_rotating_ring()
 	var player: PlayerController = ring.get_node("Player")
 	var probe: InteractionProbe = player.get_node("CameraPivot/PlayerCamera/InteractionProbe")
 	var panel_cfg: PanelConfig = load("res://resources/panel_standard.tres")
@@ -420,7 +427,7 @@ func _run_player_tests(main: Node, station: StationRoot, cfg: StationConfig) -> 
 	await _test_player_up_at_arcs(player, station)
 	_test_local_up_formula(station)
 	_test_degenerate_reorientation(player)
-	await _test_walk_into_arm(player)
+	await _test_walk_full_circle(player, ring)
 	await _test_stand_still(player)
 	await _test_accel(player)
 	await _test_jump(player)
@@ -430,26 +437,27 @@ func _run_player_tests(main: Node, station: StationRoot, cfg: StationConfig) -> 
 	await _test_determinism(player)
 	await _test_local_velocity_stable(player)
 	_test_surface_to_viewport(station)
-	_test_control_room_panels(station)
+	_test_control_deck_panels(station)
 	_test_panel_dimensions(station, cfg)
 	await _test_interaction_distance(player, probe)
-	_test_door_and_hatch(station, player)
-	await _test_input_capture(player, probe, station)
-	_test_diagnostic_element_sizes(station, panel_cfg)
+	_test_door_and_hatch(ring, player)
+	await _test_input_capture(player, probe, ring)
+	_test_diagnostic_element_sizes(ring, panel_cfg)
 	_test_no_audio_players(main)
-	await _test_lock_chamber_cycle(station, player)
-	await _test_hub_despun(station)
 
 # T-20 -----------------------------------------------------------------
 func _test_player_up_at_arcs(player: PlayerController, station: StationRoot) -> void:
-	# 2 модуля вместо 8 арок (ГДД 000 ревизия 2026-07-28): control_room на
-	# угле 0° (позиция вращающейся сборки (60,0,0)), habitat на 180°
-	# (-60,0,0) — «верх» в системе координат сборки направлен строго к оси.
 	var reference: Array = [
-		["control_room", Vector3(-1.0, 0.0, 0.0)],
-		["habitat", Vector3(1.0, 0.0, 0.0)],
+		["control_deck", Vector3(-0.923880, 0.0, -0.382683)],
+		["corridor_a", Vector3(-0.382683, 0.0, -0.923880)],
+		["habitat", Vector3(0.382683, 0.0, -0.923880)],
+		["corridor_b", Vector3(0.923880, 0.0, -0.382683)],
+		["engineering", Vector3(0.923880, 0.0, 0.382683)],
+		["corridor_c", Vector3(0.382683, 0.0, 0.923880)],
+		["docking", Vector3(-0.382683, 0.0, 0.923880)],
+		["corridor_d", Vector3(-0.923880, 0.0, 0.382683)],
 	]
-	var ring: Node3D = station.get_rotating_assembly()
+	var ring: Node3D = station.get_rotating_ring()
 	var ok := true
 	var details := ""
 	for entry in reference:
@@ -458,16 +466,16 @@ func _test_player_up_at_arcs(player: PlayerController, station: StationRoot) -> 
 		# читаем «верх» в момент падения/попадания в пол, до затухания скачка.
 		for i in range(60):
 			await physics_frame
-		# get_up_direction() — глобальный вектор (сборка продолжает вращаться,
-		# game_clock уже не на паузе); эталон задан в ЛОКАЛЬНОЙ системе
-		# сборки, поэтому для сравнения переводим в неё же (как и в T-21).
+		# get_up_direction() — глобальный вектор (кольцо продолжает вращаться,
+		# game_clock уже не на паузе); таблица 6.3.5 задана в ЛОКАЛЬНОЙ системе
+		# кольца, поэтому для сравнения переводим в неё же (как и в T-21).
 		var up_global: Vector3 = player.get_up_direction()
 		var up_local: Vector3 = (ring.global_transform.basis.inverse() * up_global).normalized()
 		var err_deg: float = rad_to_deg(up_local.angle_to(entry[1]))
 		if err_deg > 0.01:
 			ok = false
 			details += "%s err_deg=%.4f; " % [entry[0], err_deg]
-	_check("T-20 PlayerController.get_up_direction() at 2 module centers vs reference", ok, details)
+	_check("T-20 PlayerController.get_up_direction() at 8 arc centers vs reference", ok, details)
 
 # T-21 -----------------------------------------------------------------
 func _test_local_up_formula(station: StationRoot) -> void:
@@ -507,28 +515,28 @@ func _test_degenerate_reorientation(player: PlayerController) -> void:
 	_check("T-23 degenerate reorientation (forward_prev || up) stays valid", ok, "basis=%s" % [b])
 
 # T-22, T-24 -------------------------------------------------------------
-## ГДД 000 больше не описывает замкнутый тор (376.99 м, 8 дверей) — станция
-## теперь гантель (ревизия 2026-07-28): вместо полного обхода кольца этот
-## тест идёт от модуля в глубь рукояти (~20 м из ~53 м её длины, не доходя до
-## лок-камеры — чтобы не запустить цикл синхронизации посреди теста) и
-## проверяет ортонормальность базиса и монотонное убывание радиуса.
-func _test_walk_into_arm(player: PlayerController) -> void:
-	player.teleport_to_module(&"control_room")
+func _test_walk_full_circle(player: PlayerController, ring: Node3D) -> void:
+	# Двери на всех 8 стыков арок заперты по умолчанию (FR-35) — обход всего
+	# кольца физически требует их открыть, иначе тест проверяет не локомоцию,
+	# а упор игрока в закрытую дверь.
+	for i in range(8):
+		var door: Door = ring.get_node("Doors/Door_%d" % i)
+		door.open()
+
+	player.teleport_to_module(&"control_deck")
 	for i in range(60):
 		await physics_frame
-	var door: Door = player.get_parent().get_node("Door_ModuleA")
-	door.open()
-	for i in range(10):
-		await physics_frame
-
+	var start_angle_deg: float = wrapf(rad_to_deg(atan2(player.position.z, player.position.x)), 0.0, 360.0)
 	player.set_move_input(Vector2(0.0, 1.0))
 	player.set_run_input(false)
 
 	var basis_ok := true
 	var basis_details := ""
-	var radii: Array[float] = []
+	var grounded_bad_frames := 0
+	var min_radius: float = INF
+	var max_radius: float = -INF
 
-	var frames: int = int(ceil(20.0 / 2.0 * 60.0))
+	var frames: int = int(ceil(376.99 / 2.0 * 60.0)) + 180
 	for i in range(frames):
 		await physics_frame
 		var b: Basis = player.transform.basis
@@ -540,28 +548,31 @@ func _test_walk_into_arm(player: PlayerController) -> void:
 		if dot_xy > 1e-4 or dot_xz > 1e-4 or dot_yz > 1e-4 or len_err > 1e-4 or det_err > 1e-3:
 			basis_ok = false
 			basis_details = "frame=%d dots=%.6f,%.6f,%.6f len_err=%.6f det_err=%.6f" % [i, dot_xy, dot_xz, dot_yz, len_err, det_err]
-		radii.append(player.get_ring_radius())
+		if not player.is_grounded():
+			grounded_bad_frames += 1
+		var r: float = player.get_ring_radius()
+		min_radius = minf(min_radius, r)
+		max_radius = maxf(max_radius, r)
 
 	player.set_move_input(Vector2.ZERO)
 	for i in range(30):
 		await physics_frame
 
-	_check("T-22 basis orthonormal & right-handed while walking into the arm", basis_ok, basis_details)
+	_check("T-22 basis orthonormal & right-handed while walking full circle", basis_ok, basis_details)
 
-	var monotonic_ok := true
-	for i in range(1, radii.size()):
-		if radii[i] > radii[i - 1] + 0.05:
-			monotonic_ok = false
-	var start_r: float = radii[0] if radii.size() > 0 else -1.0
-	var end_r: float = radii[radii.size() - 1] if radii.size() > 0 else -1.0
-	var decreased_ok: bool = radii.size() > 0 and end_r < start_r - 1.0
-	var ok: bool = monotonic_ok and decreased_ok
-	_check("T-24 walking into the arm: radius monotonically decreases (no closed loop)", ok,
-			"start_r=%.4f end_r=%.4f monotonic=%s" % [start_r, end_r, monotonic_ok])
+	# Единичные кадры на стыках 16 хорд дуги (R-04) допустимы; полная потеря
+	# опоры на протяжении обхода — нет.
+	var grounded_ok: bool = grounded_bad_frames <= 30
+	var end_angle_deg: float = wrapf(rad_to_deg(atan2(player.position.z, player.position.x)), 0.0, 360.0)
+	var azimuth_diff: float = absf(wrapf(end_angle_deg - start_angle_deg, -180.0, 180.0))
+	var radius_ok: bool = min_radius >= 60.0 - 0.05 and max_radius <= 60.0 + 0.05
+	var ok: bool = grounded_ok and radius_ok and azimuth_diff <= 0.5
+	_check("T-24 full circle walk: grounded, radius 60+-0.05m, returns to start +-0.5deg", ok,
+			"grounded_bad_frames=%d radius=[%.4f,%.4f] azimuth_diff=%.4f" % [grounded_bad_frames, min_radius, max_radius, azimuth_diff])
 
 # T-25 -----------------------------------------------------------------
 func _test_stand_still(player: PlayerController) -> void:
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"docking")
 	for i in range(60):
 		await physics_frame
 	player.set_move_input(Vector2.ZERO)
@@ -581,7 +592,7 @@ func _test_stand_still(player: PlayerController) -> void:
 
 # T-26 -----------------------------------------------------------------
 func _test_accel(player: PlayerController) -> void:
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"control_deck")
 	for i in range(60):
 		await physics_frame
 	player.set_move_input(Vector2(0.0, 1.0))
@@ -645,7 +656,7 @@ func _test_step_threshold(player: PlayerController, ring: Node3D) -> void:
 	_check("T-28 step 0.35m passable, 0.40m blocked", ok, "passable=%s blocked=%s" % [passable, blocked])
 
 func _try_cross_step(player: PlayerController, ring: Node3D, step_h: float, body_name: String) -> bool:
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"corridor_a")
 	for i in range(60):
 		await physics_frame
 	player.set_move_input(Vector2.ZERO)
@@ -685,11 +696,8 @@ func _try_cross_step(player: PlayerController, ring: Node3D, step_h: float, body
 
 # T-29 -----------------------------------------------------------------
 func _test_teleport_all_modules(player: PlayerController) -> void:
-	# 3 именованные локации (ГДД 100 Core Rule 3, ревизия 2026-07-28) —
-	# control_room/habitat на вращающейся сборке, hub в неподвижной ступице.
-	# Ступица — почти невесомая (близко к оси), поэтому "grounded" для неё не
-	# проверяем — только что телепорт срабатывает и current_module совпадает.
-	var ids: Array = ["control_room", "habitat"]
+	var ids: Array = ["control_deck", "corridor_a", "habitat", "corridor_b",
+			"engineering", "corridor_c", "docking", "corridor_d"]
 	var ok := true
 	var details := ""
 	for id in ids:
@@ -706,13 +714,7 @@ func _test_teleport_all_modules(player: PlayerController) -> void:
 		if player.current_module() != StringName(id):
 			ok = false
 			details += "%s current_module=%s; " % [id, player.current_module()]
-	player.teleport_to_module(&"hub")
-	for i in range(15):
-		await physics_frame
-	if player.current_module() != &"hub":
-		ok = false
-		details += "hub current_module=%s; " % player.current_module()
-	_check("T-29 teleport to control_room/habitat/hub: grounded<=1s (modules), current_module matches", ok, details)
+	_check("T-29 teleport to all 8 modules: grounded<=1s, current_module matches", ok, details)
 
 # T-30 -----------------------------------------------------------------
 func _test_camera_roll(player: PlayerController, station: StationRoot) -> void:
@@ -749,7 +751,7 @@ func _test_determinism(player: PlayerController) -> void:
 	for i in range(60):
 		inputs.append(Vector2(sin(i * 0.1), cos(i * 0.05)).limit_length(1.0))
 
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"control_deck")
 	for i in range(30):
 		await physics_frame
 	var trace1: Array = []
@@ -761,7 +763,7 @@ func _test_determinism(player: PlayerController) -> void:
 	for i in range(10):
 		await physics_frame
 
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"control_deck")
 	for i in range(30):
 		await physics_frame
 	var trace2: Array = []
@@ -784,7 +786,7 @@ func _test_determinism(player: PlayerController) -> void:
 
 # T-32 -----------------------------------------------------------------
 func _test_local_velocity_stable(player: PlayerController) -> void:
-	player.teleport_to_module(&"habitat")
+	player.teleport_to_module(&"docking")
 	for i in range(60):
 		await physics_frame
 	player.set_move_input(Vector2(0.0, 1.0))
@@ -811,7 +813,7 @@ func _test_local_velocity_stable(player: PlayerController) -> void:
 
 # T-33 -----------------------------------------------------------------
 func _test_surface_to_viewport(station: StationRoot) -> void:
-	var panel: WorkPanel = station.get_module(&"control_room").get_node("WorkPanel_Registrar")
+	var panel: WorkPanel = station.get_module(&"control_deck").get_node("WorkPanel_Registrar")
 	var cases: Array = [
 		[Vector2(0.0, 0.0), Vector2(512.0, 384.0)],
 		[Vector2(0.15, -0.1125), Vector2(768.0, 576.0)],
@@ -835,8 +837,8 @@ func _test_surface_to_viewport(station: StationRoot) -> void:
 	_check("T-33 surface_to_viewport reference points (6.4.4)", ok, details)
 
 # T-34 -----------------------------------------------------------------
-func _test_control_room_panels(station: StationRoot) -> void:
-	var control_deck: StationModule = station.get_module(&"control_room")
+func _test_control_deck_panels(station: StationRoot) -> void:
+	var control_deck: StationModule = station.get_module(&"control_deck")
 	var expected_ids: Array = ["registrar", "decoder", "tx_log", "star_map", "transmitter", "tx_status", "station_control"]
 	var found: Array = []
 	var ok := true
@@ -862,7 +864,7 @@ func _test_control_room_panels(station: StationRoot) -> void:
 
 # T-35 -----------------------------------------------------------------
 func _test_panel_dimensions(station: StationRoot, cfg: StationConfig) -> void:
-	var control_deck: StationModule = station.get_module(&"control_room")
+	var control_deck: StationModule = station.get_module(&"control_deck")
 	var ok := true
 	var details := ""
 	for child in control_deck.get_children():
@@ -882,17 +884,16 @@ func _test_panel_dimensions(station: StationRoot, cfg: StationConfig) -> void:
 			if absf(aspect_surface - aspect_viewport) > 1e-4:
 				ok = false
 				details += "%s aspect mismatch; " % panel.panel_id
-			# Комната теперь плоская — высота над полом читается напрямую из
-			# локальной Y-координаты (ГДД 000 ревизия 2026-07-28), cfg передан
-			# только для совместимости сигнатуры вызова, радиус тут не при чём.
-			if panel.position.y < 0.9 or panel.position.y > 1.9:
+			var radial_dist: float = Vector2(panel.position.x, panel.position.z).length()
+			var height_above_floor: float = cfg.ring_radius_m - radial_dist
+			if height_above_floor < 0.9 or height_above_floor > 1.9:
 				ok = false
-				details += "%s height=%.3f; " % [panel.panel_id, panel.position.y]
+				details += "%s height=%.3f; " % [panel.panel_id, height_above_floor]
 	_check("T-35 panel dims 0.6x0.45m / 1024x768px, mount height 0.9-1.9m", ok, details)
 
 # T-36 -----------------------------------------------------------------
 func _test_interaction_distance(player: PlayerController, probe: InteractionProbe) -> void:
-	player.teleport_to_module(&"control_room")
+	player.teleport_to_module(&"control_deck")
 	for i in range(60):
 		await physics_frame
 	var far_target_found: bool = probe.get_target() != null
@@ -915,16 +916,15 @@ func _test_interaction_distance(player: PlayerController, probe: InteractionProb
 			"far_target_found=%s found_in_range=%s prompt_ok=%s" % [far_target_found, found_in_range, found_prompt_ok])
 
 # T-37 -----------------------------------------------------------------
-func _test_door_and_hatch(station: StationRoot, player: PlayerController) -> void:
-	var ring: Node3D = station.get_rotating_assembly()
-	var door: Door = ring.get_node("Door_ModuleA")
+func _test_door_and_hatch(ring: Node3D, player: PlayerController) -> void:
+	var door: Door = ring.get_node("Doors/Door_0")
 	door.close()
 	door.interact(player)
 	var opened_ok: bool = door.is_open() == true
 	door.interact(player)
 	var closed_ok: bool = door.is_open() == false
 
-	var hatch: SpokeHatch = station.get_node("DespunTruss/AttachPoint_1/Hatch")
+	var hatch: SpokeHatch = ring.get_node("Arcs/SpokeHatch_1/Hatch")
 	var activated_count: int = 0
 	var on_activated := func(_by: Node3D) -> void: activated_count += 1
 	hatch.activated.connect(on_activated)
@@ -933,13 +933,13 @@ func _test_door_and_hatch(station: StationRoot, player: PlayerController) -> voi
 	var hatch_ok: bool = activated_count == 0
 
 	var ok: bool = opened_ok and closed_ok and hatch_ok
-	_check("T-37 door toggles open/close; Block-3 attachment hatch refuses, no activated signal", ok,
+	_check("T-37 door toggles open/close; spoke hatch refuses, no activated signal", ok,
 			"opened=%s closed=%s hatch_activated_count=%d" % [opened_ok, closed_ok, activated_count])
 
 # T-38 -----------------------------------------------------------------
-func _test_input_capture(player: PlayerController, probe: InteractionProbe, station: StationRoot) -> void:
-	var panel: WorkPanel = station.get_node("DespunTruss/DiagnosticPanel")
-	player.teleport_to_module(&"control_room")
+func _test_input_capture(player: PlayerController, probe: InteractionProbe, ring: Node3D) -> void:
+	var panel: WorkPanel = ring.get_node("Arcs/Module_Engineering/DiagnosticPanel")
+	player.teleport_to_module(&"engineering")
 	for i in range(60):
 		await physics_frame
 	player.set_move_input(Vector2.ZERO)
@@ -972,8 +972,8 @@ func _test_input_capture(player: PlayerController, probe: InteractionProbe, stat
 			"suppressed_ok=%s restored_ok=%s" % [suppressed_ok, restored_ok])
 
 # T-39 -----------------------------------------------------------------
-func _test_diagnostic_element_sizes(station: StationRoot, panel_cfg: PanelConfig) -> void:
-	var panel: WorkPanel = station.get_node("DespunTruss/DiagnosticPanel")
+func _test_diagnostic_element_sizes(ring: Node3D, panel_cfg: PanelConfig) -> void:
+	var panel: WorkPanel = ring.get_node("Arcs/Module_Engineering/DiagnosticPanel")
 	var content: Control = panel.get_ui_root()
 	var ok: bool = content != null and panel.has_content()
 	var details := ""
@@ -1004,75 +1004,3 @@ func _find_any_audio_player(node: Node) -> bool:
 		if _find_any_audio_player(child):
 			return true
 	return false
-
-# T-41 -----------------------------------------------------------------
-## Формула [lock-chamber-spin-sync] (ГДД 000, ревизия 2026-07-28): цикл
-## синхронизации лок-камеры — ω монотонно убывает до 0 (вход в ступицу),
-## обе двери заблокированы во время цикла, цикл обратим.
-func _test_lock_chamber_cycle(station: StationRoot, player: PlayerController) -> void:
-	var chamber: LockChamber = station.get_node("LockChamber_A")
-	var ok := true
-	var details := ""
-
-	if chamber.current_state() != LockChamber.State.IDLE_ARM:
-		ok = false
-		details += "initial state not IDLE_ARM; "
-
-	chamber.begin_cycle(1)
-	if chamber.current_state() != LockChamber.State.CYCLING:
-		ok = false
-		details += "begin_cycle(1) did not enter CYCLING; "
-	if not chamber._arm_side_door.forced_locked or not chamber._hub_side_door.forced_locked:
-		ok = false
-		details += "doors not locked during cycle; "
-
-	var prev_omega: float = chamber.get_omega()
-	var monotonic_ok := true
-	var duration: float = station.config.lock_chamber_duration_s
-	var frames: int = int(ceil(duration * 60.0)) + 10
-	for i in range(frames):
-		await physics_frame
-		var omega: float = chamber.get_omega()
-		if omega > prev_omega + 1e-4:
-			monotonic_ok = false
-		prev_omega = omega
-	if not monotonic_ok:
-		ok = false
-		details += "omega not monotonically decreasing; "
-	if chamber.current_state() != LockChamber.State.IDLE_HUB:
-		ok = false
-		details += "cycle did not complete to IDLE_HUB; "
-	if absf(chamber.get_omega()) > 1e-3:
-		ok = false
-		details += "final omega=%.5f not ~0; " % chamber.get_omega()
-	if chamber._arm_side_door.forced_locked or chamber._hub_side_door.forced_locked:
-		ok = false
-		details += "doors still locked after cycle completed; "
-
-	# Реверс: выход из ступицы обратно в рукоять, ω должна вырасти назад до ω0.
-	chamber.begin_cycle(-1)
-	for i in range(frames):
-		await physics_frame
-	if chamber.current_state() != LockChamber.State.IDLE_ARM:
-		ok = false
-		details += "reverse cycle did not return to IDLE_ARM; "
-	if absf(chamber.get_omega() - (chamber._ring_rotator as RingRotator).angular_velocity_rad_s) > 1e-3:
-		ok = false
-		details += "reverse cycle omega did not return to ring omega; "
-
-	_check("T-41 lock chamber cycle: monotonic omega decrease, door lock timing, reversible", ok, details)
-
-# T-42 -----------------------------------------------------------------
-## Ступица неподвижна относительно инерциальной системы (ГДД 000 Core Rule 4,
-## ревизия 2026-07-28) — в отличие от вращающейся сборки, её ориентация не
-## должна меняться, даже пока сборка продолжает вращаться.
-func _test_hub_despun(station: StationRoot) -> void:
-	var hub: Node3D = station.get_despun_hub()
-	var basis_before: Basis = hub.global_transform.basis
-	for i in range(100):
-		await physics_frame
-	var basis_after: Basis = hub.global_transform.basis
-	var angle_change_deg: float = rad_to_deg(basis_before.x.angle_to(basis_after.x))
-	var ok: bool = angle_change_deg < 0.01
-	_check("T-42 despun hub does not rotate over 100 frames (<0.01 deg)", ok,
-			"angle_change_deg=%.5f" % angle_change_deg)

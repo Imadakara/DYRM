@@ -42,7 +42,7 @@ func _ready() -> void:
 	_solar_system = get_node_or_null(solar_system_path) as SolarSystem
 	_orbit_period_s = 2.0 * PI * sqrt(pow(config.orbit_radius_km, 3.0) / config.neptune_mu_km3_s2)
 	_collect_modules(_rotating_ring)
-	_build_hub()
+	_build_hub_and_spokes()
 	_update_orbit(0.0)
 
 	var game_clock: GameClock = get_node_or_null(game_clock_path) as GameClock
@@ -50,14 +50,17 @@ func _ready() -> void:
 		game_clock.time_changed.connect(_update_orbit)
 		_update_orbit(game_clock.epoch_days)
 
-## Ступица — простая процедурная геометрия (StationMeshBuilder) и коллизия,
-## заполняется в пустую StaticBody3D-заглушку сцены station.tscn. Неподвижна
-## относительно инерциальной системы (despun) — её торцы зарезервированы под
-## будущие модули Блока 3 (ГДД 000, Core Rule 4, ревизия 2026-07-28).
-func _build_hub() -> void:
+## Ступица и спицы — простая процедурная геометрия (StationMeshBuilder) и
+## коллизии, заполняются в пустые StaticBody3D-заглушки сцены station.tscn. FR-35
+func _build_hub_and_spokes() -> void:
 	_configure_cylinder_body(_despun_truss.get_node_or_null("Hub"),
 			StationMeshBuilder.build_hub_mesh(config.hub_radius_m, config.hub_length_m),
 			config.hub_radius_m, config.hub_length_m)
+	for i in range(1, config.spoke_count + 1):
+		var spoke_radius_m: float = config.spoke_diameter_m * 0.5
+		_configure_cylinder_body(_rotating_ring.get_node_or_null("Spoke_%d" % i),
+				StationMeshBuilder.build_spoke_mesh(config.spoke_diameter_m, config.spoke_length_m),
+				spoke_radius_m, config.spoke_length_m)
 
 func _configure_cylinder_body(body: StaticBody3D, mesh: Mesh, radius_m: float, height_m: float) -> void:
 	if body == null:
@@ -109,24 +112,14 @@ func get_gravity_up_at(global_pos: Vector3) -> Vector3:
 ## Вектор кажущейся (центробежной) гравитации в точке, м/с², направлен наружу
 ## от оси вращения. На оси — невесомость (Vector3.ZERO). Кориолисова сила
 ## и градиент тяжести по высоте не моделируются (A-03). FR-24
-##
-## angular_velocity_rad_s: угловая скорость СИСТЕМЫ ОТСЧЁТА, которой сейчас
-## принадлежит точка запроса — не выводится из global_pos автоматически
-## (после ревизии станции 2026-07-28 неподвижная ступица и вращающаяся
-## сборка сосуществуют на разных радиусах, поэтому единой ω для всей станции
-## больше нет). По умолчанию (-1) берётся ω вращающейся сборки — обратная
-## совместимость для потребителей, которые всегда находятся в ней (025, 027,
-## 031, 034, 039, 045). PlayerController — единственный потребитель, который
-## может физически оказаться в ступице или лок-камере — обязан передавать ω
-## своего текущего родителя явно (см. player_controller.gd, _current_omega()).
-func get_gravity_at(global_pos: Vector3, angular_velocity_rad_s: float = -1.0) -> Vector3:
+func get_gravity_at(global_pos: Vector3) -> Vector3:
 	var axis_dir: Vector3 = global_transform.basis.y
 	var offset: Vector3 = global_pos - global_position
 	var radial: Vector3 = offset - axis_dir * offset.dot(axis_dir)
 	var radial_len: float = radial.length()
 	if radial_len < 0.01:
 		return Vector3.ZERO
-	var omega: float = angular_velocity_rad_s if angular_velocity_rad_s >= 0.0 else _rotating_ring.angular_velocity_rad_s
+	var omega: float = _rotating_ring.angular_velocity_rad_s
 	return radial.normalized() * omega * omega * radial_len
 
 ## Базис для отсчёта азимута/возвышения (узел AimingReference): +Y — местный
@@ -159,32 +152,16 @@ func get_modules() -> Array[StationModule]:
 func get_module(id: StringName) -> StationModule:
 	return _modules_by_id.get(id)
 
-## 3 именованные локации (ГДД 100 Core Rule 3, ревизия 2026-07-28):
-## control_room/habitat (StationModule на вращающейся сборке) и hub (маркер
-## в неподвижной ступице — не StationModule, не проектируется этим методом).
 func get_spawn_point(module_id: StringName) -> Node3D:
-	if module_id == &"hub":
-		return _despun_truss.get_node_or_null("Spawn")
 	var module: StationModule = get_module(module_id)
 	if module == null:
 		return null
 	return module.spawn_point
 
-## Узел вращающейся сборки — родитель для игрока и всего, что должно
-## вращаться вместе с ней (ТЗ-100). Имя метода — наследие торовой геометрии,
-## сохранено для обратной совместимости; get_rotating_assembly() ниже —
-## каноничное имя после ревизии 2026-07-28 (ADR-0002). FR-41
+## Узел вращающегося кольца — родитель для игрока и всего, что должно
+## вращаться вместе с ним (ТЗ-100). FR-41
 func get_rotating_ring() -> Node3D:
 	return _rotating_ring
-
-func get_rotating_assembly() -> Node3D:
-	return _rotating_ring
-
-## Неподвижная (despun) ступица — родитель для игрока, когда он физически
-## находится в её объёме (ГДД 000 Core Rule 4, ADR-0002 ревизия 2026-07-28).
-## Торцы ступицы зарезервированы под будущие модули Блока 3.
-func get_despun_hub() -> Node3D:
-	return _despun_truss
 
 ## Гелиоцентрическое положение станции, км — Нептун + круговое смещение по
 ## орбите. Не является позицией узла в сцене Local (см. заголовок файла). FR-15

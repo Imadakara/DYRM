@@ -1,13 +1,10 @@
-## Игрок на станции (ТЗ-100, подсистемы 1.1/1.2). Дочерний узел ТЕКУЩЕЙ
-## системы отсчёта — вращающейся сборки, лок-камеры или неподвижной ступицы
-## (ADR-0002, ревизия 2026-07-28); перепарентируется на границах через
-## enter_lock_chamber()/exit_lock_chamber()/teleport_to_module(). Скорость
-## живёт в системе координат ТЕКУЩЕГО родителя (local_velocity — источник
-## истины), глобальная velocity собирается непосредственно перед
-## move_and_slide() и разбирается сразу после (принцип 7.1.2). Базис игрока
-## переориентируется каждый физкадр по формуле 6.4.3, сохраняя направление
-## взгляда при изменении «низа» (FR-03). Источник истины по гравитации —
-## StationRoot (принцип 7.1.1), собственной формулы здесь нет.
+## Игрок во вращающемся кольце станции (ТЗ-100, подсистемы 1.1/1.2). Дочерний
+## узел RotatingRing (A-01): скорость живёт в системе координат кольца
+## (local_velocity — источник истины), глобальная velocity собирается
+## непосредственно перед move_and_slide() и разбирается сразу после (принцип
+## 7.1.2). Базис игрока переориентируется каждый физкадр по формуле 6.4.3,
+## сохраняя направление взгляда при изменении «низа» (FR-03). Источник истины
+## по гравитации — StationRoot (принцип 7.1.1), собственной формулы здесь нет.
 class_name PlayerController
 extends CharacterBody3D
 
@@ -43,7 +40,7 @@ signal grounded_changed(grounded: bool)
 ## Модуль, в котором игрок оказывается при старте сцены (см. teleport_to_module,
 ## FR-53) — без этого узел остаётся на оси вращения кольца (позиция по
 ## умолчанию в station.tscn), где нет пола и станция не видна.
-@export var initial_module_id: StringName = &"control_room"
+@export var initial_module_id: StringName = &"control_deck"
 
 ## Скорость в системе координат кольца — источник истины (A-01, принцип 7.1.2).
 var local_velocity: Vector3 = Vector3.ZERO
@@ -54,7 +51,6 @@ var local_velocity: Vector3 = Vector3.ZERO
 
 var _station: StationRoot
 var _rotating_ring: Node3D
-var _despun_hub: Node3D
 var _interaction_probe: InteractionProbe
 var _modules: Array[StationModule] = []
 
@@ -72,15 +68,10 @@ var _current_module: StringName = &""
 var _stride_accum_m: float = 0.0
 var _was_grounded: bool = false
 
-## true во время сценарной перевозки по рукояти (см. arm_corridor.gd) —
-## обычная физика полностью приостановлена, позиция задаётся извне.
-var _transiting: bool = false
-
 func _ready() -> void:
 	_station = get_node_or_null(station_path) as StationRoot
 	if _station != null:
-		_rotating_ring = _station.get_rotating_assembly()
-		_despun_hub = _station.get_despun_hub()
+		_rotating_ring = _station.get_rotating_ring()
 		_modules = _station.get_modules()
 	_interaction_probe = get_node_or_null(interaction_probe_path) as InteractionProbe
 
@@ -105,11 +96,10 @@ func _physics_process(delta: float) -> void:
 
 	# _ready() выполняется снизу вверх: Player — потомок StationRoot, поэтому
 	# на момент его собственного _ready() @onready-поля StationRoot ещё не
-	# инициализированы, и get_rotating_assembly() мог вернуть null. Досбор —
+	# инициализированы, и get_rotating_ring() мог вернуть null. Досбор —
 	# ленивый, на первом физкадре, когда вся сцена уже готова.
 	if _rotating_ring == null and _station != null:
-		_rotating_ring = _station.get_rotating_assembly()
-		_despun_hub = _station.get_despun_hub()
+		_rotating_ring = _station.get_rotating_ring()
 		_modules = _station.get_modules()
 
 	if _rotating_ring == null or _station == null:
@@ -125,35 +115,18 @@ func _physics_process(delta: float) -> void:
 		# хорд (см. блок отката дрейфа), но гарантированно на первом кадре.
 		return
 
-	if _transiting:
-		# Позиция задаётся arm_corridor.gd напрямую каждый физкадр (после чего
-		# вызывается sync_transit_orientation() — порядок узлов в сцене
-		# гарантирует, что Arm_* обрабатывается раньше Player). move_and_slide()
-		# всё равно вызывается с нулевой скоростью — иначе внутреннее
-		# состояние Jolt отстаёт от прямых изменений transform (тот же класс
-		# проблемы, что и в обычном простое, см. комментарий ниже по файлу) и
-		# «взрывается» при возобновлении обычной физики после перевозки.
-		velocity = Vector3.ZERO
-		move_and_slide()
-		_update_grounded_signal()
-		return
-
-	var frame_basis: Basis = get_parent().global_transform.basis
+	var ring_basis: Basis = _rotating_ring.global_transform.basis
 
 	# FR-02: «низ» — только из StationRoot, источник истины (принцип 7.1.1).
-	# Магнитуда гравитации зависит от угловой скорости ТЕКУЩЕЙ системы
-	# отсчёта (вращающаяся сборка / лок-камера / неподвижная ступица) — она
-	# больше не единая на всю станцию после ревизии 000 (despun-ступица), см.
-	# station_root.get_gravity_at().
 	_up_global = _station.get_gravity_up_at(global_position)
-	var g_global: Vector3 = _station.get_gravity_at(global_position, _current_omega())
+	var g_global: Vector3 = _station.get_gravity_at(global_position)
 	up_direction = _up_global
 
-	var up_local: Vector3 = (frame_basis.inverse() * _up_global).normalized()
-	var g_local: Vector3 = frame_basis.inverse() * g_global
+	var up_local: Vector3 = (ring_basis.inverse() * _up_global).normalized()
+	var g_local: Vector3 = ring_basis.inverse() * g_global
 
 	_reorient_basis(up_local)
-	_apply_step_up(frame_basis, delta)
+	_apply_step_up(ring_basis, delta)
 
 	var v_up: float = local_velocity.dot(up_local)
 	var horizontal_velocity: Vector3 = local_velocity - up_local * v_up
@@ -198,9 +171,9 @@ func _physics_process(delta: float) -> void:
 	# задевает эту ветку максимум на один кадр — незаметно.
 	var was_resting: bool = not _stepped_up_this_frame and local_velocity.length() < REST_VELOCITY_EPS_M_S
 	var pos_before_slide: Vector3 = global_position
-	velocity = frame_basis * local_velocity - get_platform_velocity()
+	velocity = ring_basis * local_velocity - get_platform_velocity()
 	move_and_slide()
-	local_velocity = frame_basis.inverse() * (velocity - get_platform_velocity())
+	local_velocity = ring_basis.inverse() * (velocity - get_platform_velocity())
 	if was_resting:
 		# Откатываем ТОЛЬКО тангенциальную (не вдоль up) составляющую сдвига —
 		# именно она и есть паразитный дрейф от разрешения контакта с
@@ -211,30 +184,26 @@ func _physics_process(delta: float) -> void:
 		global_position -= (drift - radial_drift)
 		local_velocity = up_local * local_velocity.dot(up_local)
 	else:
-		_settle_step_up(frame_basis)
+		_settle_step_up(ring_basis)
 
 	# Радиальная координата — не результат разрешения контакта Jolt, а прямой
-	# расчёт положения точки на окружности пола МОДУЛЯ (config.ring_radius_m,
-	# ГДД 000 Core Rule 4): пока игрок на полу и не в процессе подъёма на
-	# ступеньку, XZ-часть позиции (в системе координат текущего родителя)
-	# масштабируется до точного радиуса каждый кадр. Раньше точность держалась
-	# только в полном покое (was_resting) — при ходьбе та же погрешность
-	# пересчёта контакта на каждом шаге читалась как дёрганье камеры (см.
-	# отчёт по ТЗ-100). Направление (угол) и осевую составляющую (position.y)
-	# не трогаем — реальное перемещение идёт как обычно.
-	# Привязка активна ТОЛЬКО у пола модуля (радиус близок к ring_radius_m) —
-	# в рукояти (после ревизии станции 2026-07-28) радиус намеренно непрерывно
-	# убывает по мере ходьбы к ступице (см. ГДД 000, [ring-artificial-gravity]),
-	# и здесь привязка её разрушила бы.
-	if is_on_floor() and not _stepped_up_this_frame and get_parent() == _rotating_ring:
+	# расчёт положения точки на окружности пола станции (config.ring_radius_m,
+	# FR-30): пока игрок на полу и не в процессе подъёма на ступеньку, XZ-часть
+	# позиции (в системе координат кольца) масштабируется до точного радиуса
+	# каждый кадр. Раньше точность держалась только в полном покое (was_resting)
+	# — при ходьбе та же погрешность пересчёта контакта на каждом шаге читалась
+	# как дёрганье камеры (см. отчёт по ТЗ-100). Направление (угол) и осевую
+	# составляющую (position.y) не трогаем — реальное перемещение идёт как обычно.
+	if is_on_floor() and not _stepped_up_this_frame:
 		var radial_xz: Vector2 = Vector2(position.x, position.z)
 		var current_radius: float = radial_xz.length()
-		if current_radius > AXIS_EPS and absf(current_radius - _station.config.ring_radius_m) < 3.0:
+		if current_radius > AXIS_EPS:
 			var radial_scale: float = _station.config.ring_radius_m / current_radius
 			position.x *= radial_scale
 			position.z *= radial_scale
 	_update_footstep(horizontal_velocity, delta)
 	_update_grounded_signal()
+	_update_current_module()
 	if _camera != null:
 		_camera.update_bob(horizontal_velocity.length(), is_on_floor(), delta)
 
@@ -343,6 +312,15 @@ func _update_grounded_signal() -> void:
 		_was_grounded = grounded
 		grounded_changed.emit(grounded)
 
+func _update_current_module() -> void:
+	var angle_deg: float = wrapf(rad_to_deg(atan2(position.z, position.x)), 0.0, 360.0)
+	for module in _modules:
+		if angle_deg >= module.angle_start_deg and angle_deg < module.angle_end_deg:
+			if module.module_id != _current_module:
+				_current_module = module.module_id
+				module_changed.emit(_current_module)
+			return
+
 # ─ Программные дубли ввода (FR-50) ───────────────────────────────────────
 
 func set_move_input(input: Vector2) -> void:
@@ -394,75 +372,10 @@ func trigger_interact() -> void:
 	target.interact(self)
 
 func _is_input_suppressed() -> bool:
-	if _transiting:
-		return true
-	var parent := get_parent()
-	if parent is LockChamber and not (parent as LockChamber).is_synced_with_target():
-		return true
 	if _interaction_probe == null:
 		return false
 	var target: Interactable = _interaction_probe.get_target()
 	return target != null and target.is_capturing_input()
-
-## Угловая скорость ТЕКУЩЕЙ системы отсчёта игрока (ГДД 000 ADR-0002,
-## ревизия 2026-07-28) — передаётся в StationRoot.get_gravity_at(), которая
-## больше не может вывести её из одной глобальной позиции (см. эту функцию).
-func _current_omega() -> float:
-	var parent := get_parent()
-	if parent is LockChamber:
-		return (parent as LockChamber).get_omega()
-	if parent == _rotating_ring:
-		return (_rotating_ring as RingRotator).angular_velocity_rad_s
-	return 0.0
-
-# ─ Переход через границу вращения (ГДД 000 Core Rule 5) ───────────────────
-
-## Вызывается LockChamber при входе игрока в её объём (со стороны рукояти
-## или ступицы). Перепарентирование сохраняет global_transform (без скачка);
-## цикл синхронизации запускает сама лок-камера сразу вслед за этим вызовом.
-func enter_lock_chamber(chamber: LockChamber) -> void:
-	if get_parent() != chamber:
-		reparent(chamber, true)
-	local_velocity = Vector3.ZERO
-	velocity = Vector3.ZERO
-
-## Вызывается ArmCorridor при входе игрока в триггерную зону у дверного
-## проёма модуля (см. arm_corridor.gd, заголовок файла — прямая рукоять
-## физически не может быть обычным Jolt-полом). Обычная физика приостановлена
-## на время перевозки; позиция/скорость/ориентация задаются самой рукоятью.
-func begin_arm_transit(_arm: Node3D) -> void:
-	_transiting = true
-	local_velocity = Vector3.ZERO
-	velocity = Vector3.ZERO
-
-## Пересчитывает только базис (взгляд) под текущую позицию во время
-## перевозки — без бега/шага/гравитации, но с тем же контрактом FR-02/FR-03,
-## что и обычная ходьба (направление «вниз» непрерывно меняется по мере
-## приближения к ступице, ГДД 000 Core Rule 4).
-func sync_transit_orientation() -> void:
-	var frame_basis: Basis = get_parent().global_transform.basis
-	_up_global = _station.get_gravity_up_at(global_position)
-	up_direction = _up_global
-	var up_local: Vector3 = (frame_basis.inverse() * _up_global).normalized()
-	_reorient_basis(up_local)
-
-func end_arm_transit() -> void:
-	_transiting = false
-	local_velocity = Vector3.ZERO
-	velocity = Vector3.ZERO
-
-## Вызывается LockChamber при выходе игрока из её объёма после завершения
-## цикла — to_hub=true, если синхронизация прошла в сторону ступицы (иначе
-## обратно в рукоять/вращающуюся сборку).
-func exit_lock_chamber(to_hub: bool, new_module_id: StringName) -> void:
-	var target: Node3D = _despun_hub if to_hub else _rotating_ring
-	if get_parent() != target:
-		reparent(target, true)
-	local_velocity = Vector3.ZERO
-	velocity = Vector3.ZERO
-	if new_module_id != _current_module:
-		_current_module = new_module_id
-		module_changed.emit(_current_module)
 
 # ─ Состояние (7.4) ────────────────────────────────────────────────────────
 
@@ -500,23 +413,17 @@ func get_look_angles() -> Vector2:
 
 # ─ Телепорт (FR-53) ───────────────────────────────────────────────────────
 
-## 3 именованных цели по ID модуля (ГДД 100 Core Rule 3, ревизия 2026-07-28):
-## control_room, habitat (оба на вращающейся сборке, R=60 м), hub (неподвижная
-## ступица). Прежние 8 арок торовой геометрии — история, см. ГДД 000.
 func teleport_to_module(module_id: StringName) -> void:
 	if _station == null:
 		return
-	var target_frame: Node3D = _despun_hub if module_id == &"hub" else _rotating_ring
-	if target_frame != null and get_parent() != target_frame:
-		reparent(target_frame, false)
 	var spawn: Node3D = _station.get_spawn_point(module_id)
 	if spawn == null:
 		return
 	local_velocity = Vector3.ZERO
 	velocity = Vector3.ZERO
 	global_position = spawn.global_position
-	if target_frame != null:
-		var up_local: Vector3 = (target_frame.global_transform.basis.inverse() * _station.get_gravity_up_at(global_position)).normalized()
+	if _rotating_ring != null and _station != null:
+		var up_local: Vector3 = (_rotating_ring.global_transform.basis.inverse() * _station.get_gravity_up_at(global_position)).normalized()
 		# forward — тангенциальное направление обхода кольца; right (вдоль оси
 		# кольца) выводится из него, а не наоборот (иначе «вперёд» указывает
 		# вдоль оси кольца, в стену — см. отчёт).
@@ -527,9 +434,6 @@ func teleport_to_module(module_id: StringName) -> void:
 		var right: Vector3 = forward.cross(up_local)
 		transform.basis = Basis(right, up_local, -forward)
 		_prev_right = right
-	if module_id != _current_module:
-		_current_module = module_id
-		module_changed.emit(_current_module)
 
 # ─ Сохранение (ТЗ-073) ────────────────────────────────────────────────────
 
