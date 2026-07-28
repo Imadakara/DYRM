@@ -15,7 +15,7 @@ signal input_capture_changed(captured: bool)
 @export var config: PanelConfig
 ## Маркер монтажа (сосед на сцене) — если задан, панель монтируется на него
 ## автоматически (7.7.2: маркеры задаёт ТЗ-000). Пусто — панель уже размещена
-## авторски (диагностическая панель в engineering).
+## авторски (диагностическая панель в ступице, DespunTruss).
 @export var mount_marker_path: NodePath
 @export var station_path: NodePath
 ## Материал рамки — задаётся на уровне сцены (жёлтый у диагностической, ART-03).

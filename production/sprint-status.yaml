@@ -47,8 +47,8 @@ stories:
     status: done
     owner: "Max"
     estimate_days: 0
-    blocker: ""
-    completed: "2026-07-27"
+    blocker: "station geometry re-implemented 2026-07-28 (torus -> dumbbell); the module-floor fall-through defect is root-caused and fixed same day (AnimatableBody3D.sync_to_physics not following a rotating ancestor, see knowledge-base entry #20). Follow-up: 31/42 tests pass — a smaller retuning pass remains for test timing/tolerances now that real floor contact exists (T-20, T-31, T-41), see story file."
+    completed: "2026-07-28"
   - id: "000-4"
     name: "Debug camera, overlay & MCP tooling scaffolding"
     file: "production/epics/000-igrovoe-okruzhenie/004-debug-tooling.md"
@@ -65,8 +65,8 @@ stories:
     status: done
     owner: "Max"
     estimate_days: 0
-    blocker: "known drift deviation — accepted, see story file"
-    completed: "2026-07-27"
+    blocker: "torus-era drift/threshold deviations still accepted; dumbbell re-implementation (2026-07-28) inherited story 000-3's module-floor defect, now root-caused and fixed same day. Follow-up retuning of test timing/tolerances remains (T-20, T-31), tracked with story 000-3."
+    completed: "2026-07-28"
   - id: "100-2"
     name: "Universal interaction contract — doors & spoke hatches"
     file: "production/epics/100-igrok-i-stancia-ot-pervogo-lica/002-interaction-doors-hatches.md"

@@ -3,8 +3,13 @@
 > **Layer**: Foundation
 > **GDD**: design/gdd/100-igrok-i-stancia-ot-pervogo-lica.md
 > **Architecture Module**: Player (locomotion, camera, interaction, work-panel framework)
-> **Status**: Done (documented deviations — see stories 003/004)
-> **Stories**: 4 stories, all Done — see `production/epics/100-igrok-i-stancia-ot-pervogo-lica/`
+> **Status**: Done for the original torus, with documented accepted deviations
+> (see stories 003/004). Story 001's dumbbell re-implementation (2026-07-28)
+> inherited Epic 000 story 003's module-floor defect — **root-caused and
+> fixed the same day** (see story 001's closing note); a smaller follow-up
+> test-retuning item remains, tracked alongside story 003.
+> **Stories**: 4 stories — 002, 003, 004 Done; 001 Done with the core defect
+> fixed — see `production/epics/100-igrok-i-stancia-ot-pervogo-lica/`
 
 ## Overview
 

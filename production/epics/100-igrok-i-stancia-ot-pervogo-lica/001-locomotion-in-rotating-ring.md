@@ -1,12 +1,14 @@
 # Story 001: Player locomotion & camera in the rotating ring
 
 > **Epic**: 100-igrok-i-stancia-ot-pervogo-lica
-> **Status**: Done (documented deviation)
+> **Status**: Done for the original torus (documented deviations); dumbbell
+> re-implementation done with one new open defect (see closing note below)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: L (retroactive — part of ТЗ-100's overall L estimate)
 > **Manifest Version**: 2026-07-28
-> **Last Updated**: 2026-07-28 (retroactive record; implemented 2026-07-27)
+> **Last Updated**: 2026-07-28 (torus→dumbbell re-implementation and this
+> status update; original implemented 2026-07-27)
 
 ## Context
 
@@ -45,18 +47,51 @@ tuning issue, not an engine API gap.
 - [x] Walk (2.0 m/s) and run (3.6 m/s via Shift) with smooth accel/decel (AC-08)
 - [x] Jump at 0.3g: height 0.680 ± 0.02 m, air time 1.360 ± 0.05 s (AC-09)
 - [x] Spawn/teleport to any of 8 arcs, grounded within 1.0 s (AC-11)
-- [ ] ⚠️ **Known deviation** — standing still 10s: drift should be <0.01 m;
-      actual up to 0.87 m tangential drift observed (T-25). Full-lap azimuth
-      should close within ±0.5°; actual ~4.8–4.9° divergence (T-24). Root cause:
-      Jolt contact resolution against the rotating floor reintroduces tangential
-      noise not fully cancelled by the radius-snap mitigation. See ADR-0002
-      Consequences → Negative. **Accepted at ship time, not blocking.**
+- [ ] ⚠️ **Known deviation (original torus, 2026-07-27)** — standing still 10s:
+      drift should be <0.01 m; actual up to 0.87 m tangential drift observed
+      (T-25). Full-lap azimuth should close within ±0.5°; actual ~4.8–4.9°
+      divergence (T-24). Root cause: Jolt contact resolution against the
+      rotating floor reintroduces tangential noise not fully cancelled by the
+      radius-snap mitigation. See ADR-0002 Consequences → Negative. **Accepted
+      at ship time, not blocking (for the torus).**
 - [ ] ⚠️ Threshold-climbing (0.35 m should pass, 0.40 m should fail) — 0.40 m
       obstacle passes when spec says it shouldn't (T-28, softer than spec).
 
-Implemented in `src/player/player_controller.gd`, `src/player/player_camera.gd`.
-Verified via `tools/run_tests.gd` (T-20…T-31 range) plus live MCP verification
-(`scenes/dev/movement_calibration.tscn`) at ТЗ-100 acceptance, 2026-07-27 — two
-real defects found only by live verification (spawn-on-axis black screen,
-positional "bounce" from Jolt drift) were fixed during that session; see full
-detail in `design/gdd/100-...md` and the historical ТЗ-100 §16.1.
+**Dumbbell re-implementation (2026-07-28):**
+- [x] `teleport_to_module()` handles all 3 targets (`control_room`/`habitat`/
+      `hub`) with correct reparenting between `RotatingAssembly` and the
+      despun hub
+- [x] Arm-corridor crossing via scripted transit — `begin_arm_transit()`/
+      `end_arm_transit()`/`sync_transit_orientation()`, driven by
+      `arm_corridor.gd`'s per-physics-frame position interpolation; player
+      input suppressed during transit, `move_and_slide()` still called every
+      frame with zero velocity to keep Jolt's internal state synced (fixes
+      an earlier transform-corruption bug from skipping it)
+- [x] Lock-chamber entry/exit (`enter_lock_chamber()`/`exit_lock_chamber()`)
+      correctly tracks angular velocity across `LockChamber`/`RotatingAssembly`/
+      despun-hub parents via `_current_omega()`
+- [x] **Root cause found and fixed (2026-07-28)**: the player falling straight
+      through a habitable module's own floor from spawn — see story 003's
+      closing note and knowledge-base entry #20 for the full mechanism
+      (`AnimatableBody3D.sync_to_physics` never followed the spinning
+      `RotatingAssembly` ancestor's rotation, only its own local transform).
+      T-29 (teleport-then-grounded-within-1s) now passes, confirming the fix.
+- [ ] ⚠️ **Follow-up, expected**: real floor contact now exists where it never
+      did before, so the same Jolt-rotating-platform contact noise already
+      accepted for the torus (T-24/T-25 above) now also shows up in T-20
+      (up-direction-after-settling, tight 0.01° tolerance) and T-31
+      (determinism — two teleports at different absolute ring angles now hit
+      genuinely different floating-point contact resolution). Needs a
+      retuning pass on test tolerances/settle timing, not further root-cause
+      work.
+
+Implemented in `src/player/player_controller.gd`, `src/player/player_camera.gd`,
+and (dumbbell-specific) `src/environment/station/arm_corridor.gd`,
+`src/environment/station/lock_chamber.gd`. Verified via `tools/run_tests.gd`
+(T-20…T-42 range) plus live MCP verification
+(`scenes/dev/movement_calibration.tscn`) at ТЗ-100 acceptance, 2026-07-27 for
+the torus, and via headless `tools/run_tests.gd` runs on 2026-07-28 for the
+dumbbell re-implementation — two real defects found only by live verification
+in the original session (spawn-on-axis black screen, positional "bounce" from
+Jolt drift) were fixed then; see full detail in `design/gdd/100-...md` and the
+historical ТЗ-100 §16.1.

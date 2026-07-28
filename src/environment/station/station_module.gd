@@ -1,108 +1,145 @@
-## Один модуль/коридор кольца: строит свою 45°-дугу через StationMeshBuilder
-## (пол, потолок, боковые стены + коллизии) по собственным angle_start/end_deg,
-## хранит идентификатор и точку спавна. Мешу и коллизии не хранит сам —
-## делегирует расчёт StationMeshBuilder (данные отдельно от поведения). FR-30..FR-33, FR-39
+## Один обитаемый модуль станции-гантели («боёк молота»): прямоугольная
+## комната на радиусе config.ring_radius_m от оси вращения, с дверным проёмом
+## в сторону рукояти. Собственный transform вычисляется из mount_angle_deg —
+## не задаётся вручную в сцене (см. station_root.gd, где вызывается build()).
+## Мешу и коллизии не хранит сам — делегирует расчёт StationMeshBuilder.
 class_name StationModule
 extends Node3D
 
-## Идентификатор модуля из таблицы 6.3.7 (control_deck, corridor_a, habitat, ...).
+## Идентификатор модуля (control_room, habitat — см. ГДД 100 Core Rule 3).
 @export var module_id: StringName = &""
 @export var display_name: String = ""
 
-## Угловые границы дуги в системе координат кольца (0° = +X, против часовой
-## стрелки при взгляде с +Y), см. таблицу 6.3.7.
-@export var angle_start_deg: float = 0.0
-@export var angle_end_deg: float = 45.0
+## Угол в системе координат вращающейся сборки (0° = +X, против часовой
+## стрелки при взгляде с +Y), на котором стоит модуль — см. ГДД 000 Core Rule 4.
+@export var mount_angle_deg: float = 0.0
 
 @export var config: StationConfig
 @export var hull_material: Material
 
-## Толщина коллизии пола/потолка/стен, м. Тонкие слои по всем 4 поверхностям
-## тубы вместо одного сплошного блока на весь deck_height_m — см. отчёт
-## ТЗ-100 (обходимая, но блокирующая проблема унаследованного ТЗ-000: старая
-## коллизия заполняла ВЕСЬ отсек монолитом при полностью полой видимой
-## геометрии build_ring_arc_mesh, из-за чего игрок спавнился внутри камня).
+## Толщина коллизии пола/потолка/стен, метры.
 const WALL_THICKNESS_M: float = 0.3
 
 @onready var spawn_point: Marker3D = $Spawn
 @onready var _hull: MeshInstance3D = $Hull
-## AnimatableBody3D, не StaticBody3D: этот узел лежит под RotatingRing и
+## AnimatableBody3D, не StaticBody3D: узел лежит под RotatingAssembly и
 ## непрерывно вращается — движущийся StaticBody3D физика Jolt трактует как
 ## неподвижный для broadphase и не пересчитывает контакты корректно.
 @onready var _collision_root: AnimatableBody3D = $Collision
 
+## _enter_tree() (не _ready()): порядок вызовов у Godot — _enter_tree() идёт
+## СВЕРХУ ВНИЗ (родитель раньше потомка), а _ready() СНИЗУ ВВЕРХ (потомок
+## раньше родителя). AnimatableBody3D-потомок ($Collision) регистрирует свой
+## global_transform в физическом сервере на СВОЁМ _ready() — если repositioning
+## модуля (transform=...) происходит позже, в _ready() модуля, коллизия
+## синхронизируется с ФИЗ.сервером по устаревшему (ещё не сдвинутому,
+## фактически на оси вращения) transform. Это первая часть бага.
+func _enter_tree() -> void:
+	_place_self()
+
 func _ready() -> void:
 	_build_geometry()
 
-func _build_geometry() -> void:
-	var floor_radius_m: float = config.ring_radius_m
-	var ceiling_radius_m: float = config.ring_radius_m - config.deck_height_m
-	var half_width_m: float = config.tube_width_m * 0.5
-	var angle_start_rad: float = deg_to_rad(angle_start_deg)
-	var angle_end_rad: float = deg_to_rad(angle_end_deg)
+## Вторая, более глубокая часть того же бага (обнаружена диагностикой через
+## PhysicsServer3D.body_get_state): sync_to_physics у AnimatableBody3D реально
+## переотправляет transform на физ.сервер только когда меняется СОБСТВЕННЫЙ
+## (локальный) transform самого тела — вращение РОДИТЕЛЯ (RotatingAssembly),
+## два уровня выше ($Collision — потомок StationModule, а не самого
+## RotatingAssembly), не долетает до физ.сервера, хотя Node3D.global_transform
+## (обычное чтение через сцену) уже показывает верное, повёрнутое значение.
+## Итог: физ.сервер держит пол НАВСЕГДА неподвижным в исходной ring-local
+## точке, пока станция продолжает вращаться — отсюда провал игрока сквозь пол.
+## lock_chamber.gd этой проблемы избегает случайно: он каждый физкадр сам
+## переустанавливает СОБСТВЕННЫЙ transform (_apply_transform()), а не только
+## меняется трансформом родителя — тем самым каждый раз явно трогая local
+## transform, что и запускает пересинхронизацию. Тот же приём применяется
+## здесь: пересчитываем global_transform коллизии из актуальной глобальной
+## позиции каждый кадр, что вынуждает Godot пересчитать и переприменить
+## локальный transform (а не просто прочитать неизменное кэшированное
+## значение), и физ.сервер получает свежую позицию.
+func _physics_process(_delta: float) -> void:
+	_collision_root.global_transform = _collision_root.global_transform
 
-	_hull.mesh = StationMeshBuilder.build_ring_arc_mesh(angle_start_rad, angle_end_rad,
-			floor_radius_m, ceiling_radius_m, half_width_m, config.arc_segment_count)
+func _place_self() -> void:
+	var radial: Vector3 = radial_dir(mount_angle_deg)
+	var up: Vector3 = -radial
+	var tangent := Vector3(-radial.z, 0.0, radial.x)
+	var depth_axis: Vector3 = tangent.cross(up)
+	transform = Transform3D(Basis(tangent, up, depth_axis), radial * config.ring_radius_m)
+
+## Радиальное направление (наружу от оси) для заданного угла в системе
+## координат вращающейся сборки.
+static func radial_dir(angle_deg: float) -> Vector3:
+	var angle_rad: float = deg_to_rad(angle_deg)
+	return Vector3(cos(angle_rad), 0.0, sin(angle_rad))
+
+## Касательное направление (перпендикулярно радиальному) для того же угла.
+static func tangent_dir(angle_deg: float) -> Vector3:
+	var r: Vector3 = radial_dir(angle_deg)
+	return Vector3(-r.z, 0.0, r.x)
+
+## Ортонормированный базис для прямой трубы (рукоять/лок-камера): forward —
+## направление вдоль трубы, up_hint — предпочтительное направление «верха»
+## (не обязательно точно перпендикулярно forward). Если forward почти
+## параллелен up_hint (чисто радиальный отрезок, вырожденный случай), right
+## берётся из касательного направления при заданном угле вместо
+## forward x up_hint — иначе получился бы нулевой вектор.
+static func orthonormal_tube_basis(forward: Vector3, up_hint: Vector3, fallback_angle_deg: float) -> Basis:
+	var right: Vector3 = forward.cross(up_hint)
+	if right.length() < 0.01:
+		right = forward.cross(tangent_dir(fallback_angle_deg))
+		if right.length() < 0.01:
+			right = forward.cross(Vector3.UP)
+	right = right.normalized()
+	var up: Vector3 = right.cross(forward).normalized()
+	return Basis(right, up, forward)
+
+func _build_geometry() -> void:
+	_hull.mesh = StationMeshBuilder.build_room_mesh(config.module_width_m, config.module_depth_m, config.module_height_m)
 	if hull_material != null:
 		_hull.material_override = hull_material
 
-	# Точка спавна — середина дуги, ~1 м над полом в направлении местного "верха"
-	# (радиально внутрь, см. get_gravity_up_at). FR-39
-	var mid_angle_rad: float = (angle_start_rad + angle_end_rad) * 0.5
-	var radial_dir := Vector3(cos(mid_angle_rad), 0.0, sin(mid_angle_rad))
-	spawn_point.position = radial_dir * (floor_radius_m - 1.0)
+	# Точка спавна — центр комнаты, ~1 м от пола в направлении местного «верха».
+	spawn_point.position = Vector3(0.0, 1.0, -config.module_depth_m * 0.5)
 
-	var mid_radius_m: float = (floor_radius_m + ceiling_radius_m) * 0.5
-	_build_collision(angle_start_rad, angle_end_rad, floor_radius_m, ceiling_radius_m, half_width_m)
+	_build_collision()
+	_build_interior_lights()
 
-	_build_interior_lights(angle_start_rad, angle_end_rad, mid_radius_m)
+## Пол/потолок/3 стены (4-я сторона, Z=0, — дверной проём в рукоять, не
+## перекрывается коллизией комнаты).
+func _build_collision() -> void:
+	var hw: float = config.module_width_m * 0.5
+	var d: float = config.module_depth_m
+	var h: float = config.module_height_m
 
-## Четыре тонких коллайдера на хорду (пол/потолок/2 стены) — повторяет полую
-## структуру build_ring_arc_mesh. Один сплошной блок на весь deck_height_m
-## оставлял бы отсек монолитом без свободного пространства для ходьбы.
-func _build_collision(angle_start_rad: float, angle_end_rad: float,
-		floor_radius_m: float, ceiling_radius_m: float, half_width_m: float) -> void:
-	var mid_radius_m: float = (floor_radius_m + ceiling_radius_m) * 0.5
-	var chord_len_m: float = StationMeshBuilder.ring_arc_chord_length(
-			angle_start_rad, angle_end_rad, mid_radius_m, config.arc_segment_count)
-
-	# Плиты выступают НАРУЖУ от полой зоны (пол — за r=floor_radius_m в сторону
-	# корпуса, потолок — за r=ceiling_radius_m в сторону оси), а не внутрь неё:
-	# ходимая поверхность должна остаться ровно на floor_radius_m (AC-06,
-	# радиус 60,00 ± 0,05 м), а не на floor_radius_m - WALL_THICKNESS_M/2.
 	var floor_shape := BoxShape3D.new()
-	floor_shape.size = Vector3(chord_len_m, config.tube_width_m, WALL_THICKNESS_M)
-	_add_collision_layer(angle_start_rad, angle_end_rad,
-			floor_radius_m + WALL_THICKNESS_M * 0.5, floor_shape)
+	floor_shape.size = Vector3(config.module_width_m, WALL_THICKNESS_M, d)
+	_add_box(floor_shape, Vector3(0.0, -WALL_THICKNESS_M * 0.5, -d * 0.5), Basis.IDENTITY)
 
 	var ceiling_shape := BoxShape3D.new()
-	ceiling_shape.size = Vector3(chord_len_m, config.tube_width_m, WALL_THICKNESS_M)
-	_add_collision_layer(angle_start_rad, angle_end_rad,
-			ceiling_radius_m - WALL_THICKNESS_M * 0.5, ceiling_shape)
+	ceiling_shape.size = Vector3(config.module_width_m, WALL_THICKNESS_M, d)
+	_add_box(ceiling_shape, Vector3(0.0, h + WALL_THICKNESS_M * 0.5, -d * 0.5), Basis.IDENTITY)
 
-	var wall_shape := BoxShape3D.new()
-	wall_shape.size = Vector3(chord_len_m, WALL_THICKNESS_M, config.deck_height_m)
-	_add_collision_layer(angle_start_rad, angle_end_rad, mid_radius_m, wall_shape, half_width_m)
-	_add_collision_layer(angle_start_rad, angle_end_rad, mid_radius_m, wall_shape, -half_width_m)
+	var far_wall_shape := BoxShape3D.new()
+	far_wall_shape.size = Vector3(config.module_width_m, h, WALL_THICKNESS_M)
+	_add_box(far_wall_shape, Vector3(0.0, h * 0.5, -d - WALL_THICKNESS_M * 0.5), Basis.IDENTITY)
 
-func _add_collision_layer(angle_start_rad: float, angle_end_rad: float, radius_m: float,
-		shape: BoxShape3D, y_offset_m: float = 0.0) -> void:
-	var transforms: Array[Transform3D] = StationMeshBuilder.ring_arc_collision_transforms(
-			angle_start_rad, angle_end_rad, radius_m, config.arc_segment_count)
-	for local_transform in transforms:
-		var collision_shape := CollisionShape3D.new()
-		collision_shape.shape = shape
-		collision_shape.transform = local_transform.translated(Vector3.UP * y_offset_m)
-		_collision_root.add_child(collision_shape)
+	var side_wall_shape := BoxShape3D.new()
+	side_wall_shape.size = Vector3(WALL_THICKNESS_M, h, d)
+	_add_box(side_wall_shape, Vector3(-hw - WALL_THICKNESS_M * 0.5, h * 0.5, -d * 0.5), Basis.IDENTITY)
+	_add_box(side_wall_shape, Vector3(hw + WALL_THICKNESS_M * 0.5, h * 0.5, -d * 0.5), Basis.IDENTITY)
 
-## Внутреннее освещение отсека: несколько OmniLight3D, равномерно расставленных
-## вдоль дуги модуля на середине высоты отсека. Раздел 9.2.
-func _build_interior_lights(angle_start_rad: float, angle_end_rad: float, mid_radius_m: float) -> void:
+func _add_box(shape: BoxShape3D, local_pos: Vector3, basis: Basis) -> void:
+	var collision_shape := CollisionShape3D.new()
+	collision_shape.shape = shape
+	collision_shape.transform = Transform3D(basis, local_pos)
+	_collision_root.add_child(collision_shape)
+
+func _build_interior_lights() -> void:
 	for i in range(config.interior_light_count_per_module):
 		var t: float = (i + 0.5) / float(config.interior_light_count_per_module)
-		var angle_rad: float = lerp(angle_start_rad, angle_end_rad, t)
 		var light := OmniLight3D.new()
-		light.position = Vector3(cos(angle_rad), 0.0, sin(angle_rad)) * mid_radius_m
+		light.position = Vector3(0.0, config.module_height_m * 0.5, lerp(-config.module_depth_m, 0.0, t))
 		light.light_color = config.interior_light_color
 		light.omni_range = config.interior_light_range_m
 		light.light_energy = config.interior_light_energy

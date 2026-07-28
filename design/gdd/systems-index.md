@@ -25,18 +25,18 @@ Two systems were designed as combined documents pre-adoption and stay that way:
 
 ## Progress Tracker
 
-| Priority | Total | Approved | Designed | Not Started |
-|----------|-------|----------|----------|-------------|
-| MVP | 20 | 2 (000, 100) | 0 | 18 |
-| Core | 19 | 0 | 0 | 19 |
-| Ext | 14 | 0 | 0 | 14 |
-| **Total** | **53** | **2** | **0** | **51** |
+| Priority | Total | Approved | Designed | Pending Review | Not Started |
+|----------|-------|----------|----------|-----------------|-------------|
+| MVP | 20 | 1 (100) | 0 | 1 (000 — station geometry revised 2026-07-28) | 18 |
+| Core | 19 | 0 | 0 | 0 | 19 |
+| Ext | 14 | 0 | 0 | 0 | 14 |
+| **Total** | **53** | **1** | **0** | **1** | **51** |
 
 ## Block 0 — Игровое окружение
 
 | ID | System | Layer | Priority | Status | Design Doc |
 |----|--------|-------|----------|--------|------------|
-| 000 | Станция + Окружающий космос (0.1, 0.2) | Foundation | MVP | Approved | `design/gdd/000-igrovoe-okruzhenie.md` |
+| 000 | Станция + Окружающий космос (0.1, 0.2) | Foundation | MVP | Pending Review (0.1 station geometry revised 2026-07-28 — torus → twin-module dumbbell; 0.2 still Approved) | `design/gdd/000-igrovoe-okruzhenie.md` |
 
 ## Block 1 — Игрок и станция от первого лица
 

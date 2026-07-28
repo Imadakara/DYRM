@@ -3,8 +3,13 @@
 > **Layer**: Foundation
 > **GDD**: design/gdd/000-igrovoe-okruzhenie.md
 > **Architecture Module**: World/Environment (Local+Deep spatial model, Solar System simulation, station geometry)
-> **Status**: Done
-> **Stories**: 4 stories, all Done — see `production/epics/000-igrovoe-okruzhenie/`
+> **Status**: Done for orbital mechanics/solar system (0.2); station geometry
+> (0.1) re-implemented 2026-07-28 for the twin-module dumbbell — the blocking
+> physics defect (module-floor fall-through) is **root-caused and fixed**
+> (same day); a smaller follow-up test-retuning pass remains — see story 003
+> **Stories**: 4 stories — 001, 002, 004 Done; 003 Done with the core defect
+> fixed and a documented follow-up retuning item
+> (see `production/epics/000-igrovoe-okruzhenie/003-station-orbit-and-ring.md`)
 
 ## Overview
 
@@ -42,10 +47,17 @@ gamedev plugin was adopted; recorded here retroactively for traceability
 ## Definition of Done
 
 This epic is complete when:
-- All stories are implemented, reviewed, and closed via `/story-done` — **satisfied
-  retroactively**: implementation predates the plugin, verified via
+- All stories are implemented, reviewed, and closed via `/story-done` — satisfied
+  for stories 001, 002, 004 (implementation predates the plugin, verified via
   `tools/run_tests.gd` (headless) and live MCP verification at the time of ТЗ-000
-  acceptance (2026-07-27).
+  acceptance, 2026-07-27). Story 003 was re-implemented 2026-07-28 for the
+  station-geometry revision and is **not yet closable** — see below.
 - No AC in `design/gdd/000-igrovoe-okruzhenie.md` remains unresolved without an
-  explicit, accepted deviation note — **satisfied**: zero open deviations recorded
-  for this system (unlike Epic 100, which has documented deviations).
+  explicit, accepted deviation note — **substantially satisfied**: the one
+  blocking, unaccepted defect (`CharacterBody3D` falling through a habitable
+  module's own floor) is now root-caused and fixed (knowledge-base entry #20,
+  now РЕШЕНО). What remains is a smaller, expected follow-up: real floor
+  contact now exposes the same Jolt-rotating-platform noise already accepted
+  for the torus design (ADR-0002), plus a few `tools/run_tests.gd` cases need
+  retuning for timing/tolerance assumptions calibrated around the old
+  (contact-free) behavior — tracked in story 003, not a new root-cause hunt.
