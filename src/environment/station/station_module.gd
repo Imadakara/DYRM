@@ -2,17 +2,6 @@
 ## (пол, потолок, боковые стены + коллизии) по собственным angle_start/end_deg,
 ## хранит идентификатор и точку спавна. Мешу и коллизии не хранит сам —
 ## делегирует расчёт StationMeshBuilder (данные отдельно от поведения). FR-30..FR-33, FR-39
-##
-## @tool: геометрия строится и в редакторе, не только в запущенной игре —
-## чтобы station.tscn открывался уже собранным и правки (углы дуги, config)
-## были видны сразу, без запуска проекта. _build_geometry() идемпотентна
-## (чистит сгенерированные ранее коллайдеры/светильники перед пересборкой),
-## поэтому повторные вызовы при перезагрузке скрипта в редакторе не копят
-## дубликаты. Сгенерированные узлы НЕ получают owner — это сознательно:
-## геометрия пересобирается заново при каждом открытии сцены из актуального
-## config, а не сохраняется в .tscn (та же логика, что и раньше при чисто
-## рантайм-генерации — просто теперь она срабатывает и в редакторе).
-@tool
 class_name StationModule
 extends Node3D
 
@@ -46,9 +35,6 @@ func _ready() -> void:
 	_build_geometry()
 
 func _build_geometry() -> void:
-	_clear_children(_collision_root)
-	_clear_generated_lights()
-
 	var floor_radius_m: float = config.ring_radius_m
 	var ceiling_radius_m: float = config.ring_radius_m - config.deck_height_m
 	var half_width_m: float = config.tube_width_m * 0.5
@@ -121,15 +107,3 @@ func _build_interior_lights(angle_start_rad: float, angle_end_rad: float, mid_ra
 		light.omni_range = config.interior_light_range_m
 		light.light_energy = config.interior_light_energy
 		add_child(light)
-
-## Чистит сгенерированные _build_geometry() дочерние узлы перед пересборкой
-## (сама пересборка происходит и в редакторе — см. класс-комментарий), иначе
-## повторный вызов множил бы коллайдеры/светильники, а не заменял их.
-func _clear_children(parent: Node) -> void:
-	for c in parent.get_children():
-		c.free()
-
-func _clear_generated_lights() -> void:
-	for c in get_children():
-		if c is OmniLight3D:
-			c.free()

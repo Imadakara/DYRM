@@ -1,14 +1,5 @@
 ## Игровое время: сутки от эпохи J2000.0, множитель скорости, пауза.
 ## Обычный узел main.tscn — без автозагрузок, ссылки передаются через @export NodePath.
-##
-## @tool: не для того, чтобы время шло в редакторе (см. защиту в
-## _physics_process ниже — там оно НЕ идёт), а чтобы сигнал time_changed
-## оставался настоящим сигналом, а не плейсхолдером, для station_root.gd/
-## ring_rotator.gd (тоже @tool, см. класс-комментарий StationModule) —
-## соединение с плейсхолдером падает с "Invalid access to property or key
-## 'time_changed'". Кольцо в редакторе остаётся неподвижным (последний
-## сохранённый rotation.y) — самое подходящее состояние для правки геометрии.
-@tool
 class_name GameClock
 extends Node
 
@@ -39,15 +30,13 @@ const TIME_SCALE_STEP: float = 10.0
 ## визуально незаметно, но даёт систематический дрейф позиции у всего, что
 ## стоит на вращающемся полу (обнаружено при отладке ТЗ-100, AC-07).
 func _physics_process(delta: float) -> void:
-	if Engine.is_editor_hint() or paused:
+	if paused:
 		return
 	advance(delta)
 
 ## Клавиши [ / ] и P — программные дубли: time_scale и paused уже публичные
 ## поля, отдельных методов для отладочных пресетов не требуется. FR-53
 func _unhandled_input(event: InputEvent) -> void:
-	if Engine.is_editor_hint():
-		return
 	if event.is_action_pressed("time_scale_up"):
 		time_scale = clampf(time_scale * TIME_SCALE_STEP, MIN_TIME_SCALE, MAX_TIME_SCALE)
 	elif event.is_action_pressed("time_scale_down"):

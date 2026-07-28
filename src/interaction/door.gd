@@ -1,10 +1,6 @@
 ## Дверь на стыке арок: мгновенное переключение створки и коллизии по
 ## взаимодействию (ТЗ-100, FR-35). Промежуточные состояния не моделируются —
 ## A-07: коллизия переключается сразу, без анимации в физике.
-##
-## @tool: створка получает меш/коллизию и в редакторе — станция открывается
-## уже собранной, см. класс-комментарий StationModule.
-@tool
 class_name Door
 extends Interactable
 
@@ -60,8 +56,6 @@ func _ready() -> void:
 ## global_transform всегда рассылает нотификацию, даже если значение совпадает
 ## с текущим, и именно так реально форсируется пересинхронизация.
 func _physics_process(_delta: float) -> void:
-	if Engine.is_editor_hint():
-		return
 	_leaf_body.global_transform = _leaf_body.global_transform
 
 func interact(from: Node3D) -> void:

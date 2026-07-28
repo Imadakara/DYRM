@@ -2,11 +2,6 @@
 ## рендер на плоский меш, перевод точки попадания луча в пиксель (6.4.4),
 ## доставка событий мыши как штатных InputEvent (FR-42). Панель — контейнер,
 ## а не содержимое: что показано, определяют другие ТЗ через set_ui_scene().
-##
-## @tool: рамка/экран/монтаж и содержимое (заглушка или initial_content)
-## строятся и в редакторе — станция открывается уже собранной, см.
-## класс-комментарий StationModule.
-@tool
 class_name WorkPanel
 extends Interactable
 
@@ -117,12 +112,8 @@ func _setup_visibility() -> void:
 	_visibility_notifier.aabb = AABB(
 			Vector3(-config.surface_size_m.x * 0.5, -config.surface_size_m.y * 0.5, -half_depth),
 			Vector3(config.surface_size_m.x, config.surface_size_m.y, config.frame_depth_m))
-	# is_connected — на случай повторного _ready() при перезагрузке @tool-скрипта
-	# в редакторе; connect() на уже подключённый сигнал падает с ошибкой.
-	if not _visibility_notifier.screen_entered.is_connected(_on_screen_entered):
-		_visibility_notifier.screen_entered.connect(_on_screen_entered)
-	if not _visibility_notifier.screen_exited.is_connected(_on_screen_exited):
-		_visibility_notifier.screen_exited.connect(_on_screen_exited)
+	_visibility_notifier.screen_entered.connect(_on_screen_entered)
+	_visibility_notifier.screen_exited.connect(_on_screen_exited)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE if _visibility_notifier.is_on_screen() else SubViewport.UPDATE_DISABLED
 
 func _on_screen_entered() -> void:

@@ -11,13 +11,6 @@
 ## в инерциальном пространстве — не путать с AimingReference, чей базис
 ## отслеживает текущий орбитальный зенит и медленно поворачивается за орбитальный
 ## период (21,1 ч), независимо от быстрого вращения кольца (28,375 с). A-02, A-03
-##
-## @tool: ступица/спицы получают меш и коллизию (_build_hub_and_spokes) и
-## реестр модулей собирается уже в редакторе — station.tscn открывается
-## собранным, см. класс-комментарий StationModule. Здесь пересборка задевает
-## только уже существующие в сцене узлы-заглушки (Hub/Spoke_N), новых не
-## создаёт — идемпотентна без отдельной очистки.
-@tool
 class_name StationRoot
 extends Node3D
 
@@ -48,16 +41,12 @@ var _aiming_basis: Basis = Basis.IDENTITY
 func _ready() -> void:
 	_solar_system = get_node_or_null(solar_system_path) as SolarSystem
 	_orbit_period_s = 2.0 * PI * sqrt(pow(config.orbit_radius_km, 3.0) / config.neptune_mu_km3_s2)
-	_modules.clear()
-	_modules_by_id.clear()
 	_collect_modules(_rotating_ring)
 	_build_hub_and_spokes()
 	_update_orbit(0.0)
 
 	var game_clock: GameClock = get_node_or_null(game_clock_path) as GameClock
-	# Проверка is_connected — на случай повторного _ready() при перезагрузке
-	# @tool-скрипта в редакторе; connect() на уже подключённый сигнал падает.
-	if game_clock != null and not game_clock.time_changed.is_connected(_update_orbit):
+	if game_clock != null:
 		game_clock.time_changed.connect(_update_orbit)
 		_update_orbit(game_clock.epoch_days)
 
