@@ -129,10 +129,11 @@ debug twins", and "named deterministic camera angles" rules above exist.
 
 Practical gotchas for these two MCPs (process lifecycle, scene-authoring pitfalls, runtime-tool
 quirks) — not just for verification, for everyday scene/node work through them too — live in the
-global `godot-mcp-testing` skill (`~/.claude/skills/godot-mcp-testing/`, see Tests section below);
-check it before improvising a workaround for odd MCP behavior. It's global (not DYRM-specific)
-since the same two MCPs and their quirks apply to any Godot project on this machine — DYRM's own
-test-case catalog (see Tests below) stays local, in `dyrm-tz`.
+global `godot-mcp-testing` skill, grouped in the `godot` plugin
+(`~/.claude/skills/godot/skills/godot-mcp-testing/`, invoked as `godot:godot-mcp-testing`; see
+Tests section below); check it before improvising a workaround for odd MCP behavior. It's global
+(not DYRM-specific) since the same two MCPs and their quirks apply to any Godot project on this
+machine — DYRM's own test-case catalog (see Tests below) stays local, in `dyrm-tz`.
 
 ## Godot knowledge base (cross-project)
 
@@ -145,17 +146,21 @@ C:\Users\PC\Documents\Development\Claude Common\Knowledge base\Godot\godot-devel
 ```
 
 Before re-diagnosing weird engine/MCP behavior from scratch, check whether it's already recorded
-there. Populate it via the global `godot-knowledge-base` skill (`~/.claude/skills/godot-knowledge-base/`)
+there. Populate it via the global `godot-knowledge-base` skill, grouped in the `godot` plugin
+(`~/.claude/skills/godot/skills/godot-knowledge-base/`, invoked as `godot:godot-knowledge-base`)
 after finishing and verifying a ТЗ/task, if something non-trivial came up — both the file and the
 skill live outside this repo on purpose, since the same findings apply to any Godot project, not
 just DYRM.
 
 ## External Godot skill library (gd-agentic-skills)
 
-`~/.claude/skills/` also hosts 97 global skills from `thedivergentai/gd-agentic-skills`
-(`godot-master` plus domain/genre skills covering GDScript patterns, architecture, 2D/3D systems,
-UI, and per-genre blueprints). These are freely available to consult and draw patterns from for
-DYRM work, same as any other Godot project — no blanket restriction against using them.
+`~/.claude/skills/godot/skills/` (part of the global `godot` skills-directory plugin — see the
+global `~/.claude/CLAUDE.md` for how that plugin is organized) also hosts 97 global skills from
+`thedivergentai/gd-agentic-skills` (`godot-master` plus domain/genre skills covering GDScript
+patterns, architecture, 2D/3D systems, UI, and per-genre blueprints), invoked with the `godot:`
+prefix (e.g. `godot:godot-gdscript-mastery`). These are freely available to consult and draw
+patterns from for DYRM work, same as any other Godot project — no blanket restriction against
+using them.
 
 That said, this file's own sections above (**Tech stack and constraints**, **Code conventions**,
 **Coordinates and units**, **Tooling**) are DYRM's deliberate, ТЗ-000-derived source of truth and
@@ -163,10 +168,10 @@ win whenever a pattern from that library would conflict with them — e.g. its
 `godot-autoload-architecture` skill's autoload-forward patterns don't override "no autoloads
 without explicit justification in a ТЗ" above; its `godot-builder` skill's own Python/CLI scripts
 for driving Godot headlessly are not this project's workflow — use the `godot-runtime`/`godot` MCP
-pair via the (separately global) `godot-mcp-testing` skill instead. Most of the library's genre
-blueprints and platform-adaptation skills (mobile/console/VR/web ports, multiplayer, most
-`godot-genre-*`) are simply not applicable to a singleplayer, desktop-only, first-person
-sim/puzzle game — skip them rather than forcing fit.
+pair via the `godot:godot-mcp-testing` skill instead. Most of the library's genre blueprints and
+platform-adaptation skills (mobile/console/VR/web ports, multiplayer, most `godot-genre-*`) are
+simply not applicable to a singleplayer, desktop-only, first-person sim/puzzle game — skip them
+rather than forcing fit.
 
 ## Tests
 
@@ -181,8 +186,9 @@ Expected output: one line per test, ending in `RESULT: <N> passed, 0 failed`, ex
 **All testing during development beyond this headless numeric run goes through two skills split
 by scope** — don't improvise MCP verification steps ad hoc:
 
-- **`godot-mcp-testing`** (global, `~/.claude/skills/godot-mcp-testing/` — not DYRM-specific, same
-  as any Godot project using this MCP pair): general MCP process/lifecycle discipline, the full
+- **`godot-mcp-testing`** (global, grouped in the `godot` plugin at
+  `~/.claude/skills/godot/skills/godot-mcp-testing/`, invoked as `godot:godot-mcp-testing` — not
+  DYRM-specific, same as any Godot project using this MCP pair): general MCP process/lifecycle discipline, the full
   tool catalog for both MCPs, scene-authoring/runtime tool gotchas, the calibration-scene recipe,
   screenshots, live-bridge-vs-autotests.
 - **`dyrm-tz`** (`.claude/skills/dyrm-tz/`, DYRM-specific): the test-case catalog itself — a
