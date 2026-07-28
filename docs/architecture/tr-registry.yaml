@@ -1,0 +1,105 @@
+# Technical Requirements Registry
+# Stable TR-IDs extracted from design/gdd/*.md during full gamedev-plugin adoption
+# (2026-07-28) — bootstrapped from the two already-implemented systems' GDDs
+# (which themselves are ports of ТЗ-000/ТЗ-100's already-shipped FR/AC tables, not
+# new requirements). Future GDDs append new TR-IDs; existing IDs are never
+# renumbered or deleted, only marked deprecated.
+version: "1.0"
+last_updated: "2026-07-28"
+
+requirements:
+  # --- System 000: Игровое окружение ---
+  - id: TR-000-001
+    system: "000-igrovoe-okruzhenie"
+    requirement: "World must be split into a Local layer (1:1 m, radius 2000 m) and a Deep layer (compressed, separate SubViewport/World3D, composited behind Local without depth write)."
+    category: "architecture / rendering"
+    status: implemented
+  - id: TR-000-002
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Distance compression into the Deep layer must be strictly monotonic and preserve exact direction to every object."
+    category: "formula / rendering"
+    status: implemented
+  - id: TR-000-003
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Angular size of a body must be exact above min_angular_diameter_deg (0.12°) and clamp to the threshold below it."
+    category: "formula / rendering"
+    status: implemented
+  - id: TR-000-004
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Solar system bodies (Sun, 8 planets, Triton) must be positioned via Keplerian elements at epoch J2000, matching JPL SSD reference within ±0.01 AU."
+    category: "simulation"
+    status: implemented
+  - id: TR-000-005
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Station orbits Neptune on a circular orbit (100,000 km); period derived from Neptune's gravitational parameter, not hardcoded."
+    category: "simulation"
+    status: implemented
+  - id: TR-000-006
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Rotating habitat ring must produce 0.3g artificial gravity via centripetal acceleration; angular velocity derived from target gravity and ring radius, not hardcoded."
+    category: "formula / physics"
+    status: implemented
+  - id: TR-000-007
+    system: "000-igrovoe-okruzhenie"
+    requirement: "get_gravity_up_at()/get_gravity_at() must be the single source of truth for 'down' and gravity magnitude for all consumer systems."
+    category: "architecture / API contract"
+    status: implemented
+  - id: TR-000-008
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Ecliptic-to-Godot coordinate conversion must exist in exactly one place (SpaceScale.ecliptic_to_godot()), never duplicated."
+    category: "architecture"
+    status: implemented
+  - id: TR-000-009
+    system: "000-igrovoe-okruzhenie"
+    requirement: "Station eclipse by Neptune must be computed geometrically (shadow arc from station orbit radius and Neptune radius), not scripted/faked."
+    category: "formula"
+    status: implemented
+
+  # --- System 100: Игрок и станция от первого лица ---
+  - id: TR-100-001
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Player (CharacterBody3D) must be a child node of RotatingRing; velocity math carried out in ring-local space, converted to global once per physics frame around move_and_slide()."
+    category: "architecture / physics"
+    status: implemented
+  - id: TR-100-002
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Player basis must be re-orthonormalized every physics frame against current 'up' (from 000's contract), preserving previous frame's look direction, with a defined degenerate-case fallback."
+    category: "formula / physics"
+    status: implemented
+  - id: TR-100-003
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Player must not implement its own gravity constant — must consume StationRoot.get_gravity_at()/get_gravity_up_at() exclusively."
+    category: "architecture / API contract"
+    status: implemented
+  - id: TR-100-004
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Universal interaction contract: Interactable base class (can_interact(), interact()), 2.0 m ray from screen center, distance-gated."
+    category: "architecture / gameplay"
+    status: implemented
+  - id: TR-100-005
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "WorkPanel renders its UI from a SubViewport onto a flat mesh (0.60×0.45 m, 1024×768), translates ray hit-point to viewport pixel, and forwards input as standard mouse events so unmodified Control nodes work."
+    category: "architecture / UI"
+    status: implemented
+  - id: TR-100-006
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "WorkPanel must accept content from other systems via set_ui_scene()/get_ui_root() without modifying WorkPanel's own code."
+    category: "architecture / API contract"
+    status: implemented
+  - id: TR-100-007
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Every debug-bound player command must have a public programmatic twin method (no input-only debug controls)."
+    category: "tooling / testability"
+    status: implemented
+  - id: TR-100-008
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Programmatic switch between DebugFlyCamera and player camera."
+    category: "tooling"
+    status: not_implemented
+    note: "FR-51 — known gap, documented deviation, not a blocker for ТЗ-100 acceptance."
+  - id: TR-100-009
+    system: "100-igrok-i-stancia-ot-pervogo-lica"
+    requirement: "Player standing still on the rotating floor must not drift (radius <0.05 m / 5 min, tangential <0.01 m / 10 s)."
+    category: "physics / stability"
+    status: partially_implemented
+    note: "Residual drift beyond tolerance — see ADR-0002 Consequences → Negative and design/gdd/100-...md Acceptance Criteria."

@@ -1,0 +1,63 @@
+# Architecture Registry
+# Locked architectural stances extracted from Accepted ADRs, checked by
+# /architecture-decision before drafting any new ADR to prevent contradictions.
+# Bootstrapped 2026-07-28 during full gamedev-plugin adoption from ADR-0001..0004.
+version: "1.0"
+last_updated: "2026-07-28"
+
+state_ownership:
+  - state: "gravity_up_direction_and_magnitude"
+    owner: "000-igrovoe-okruzhenie (StationRoot)"
+    interface: "StationRoot.get_gravity_up_at(p) -> Vector3, StationRoot.get_gravity_at(p) -> Vector3"
+    source_adr: "ADR-0001, ADR-0002"
+    note: "Single source of truth — no consumer system may compute its own gravity/up."
+  - state: "celestial_body_positions"
+    owner: "000-igrovoe-okruzhenie (SolarSystem)"
+    interface: "SolarSystem.get_bodies() -> Array[CelestialBody], CelestialBody.direction_from_station() -> Vector3"
+    source_adr: "ADR-0001"
+  - state: "player_velocity"
+    owner: "100-igrok-i-stancia-ot-pervogo-lica (PlayerController)"
+    interface: "PlayerController.local_velocity: Vector3 (ring-local space, source of truth)"
+    source_adr: "ADR-0002"
+  - state: "ecliptic_to_godot_coordinate_conversion"
+    owner: "000-igrovoe-okruzhenie (SpaceScale)"
+    interface: "SpaceScale.ecliptic_to_godot(ecl: Vector3) -> Vector3"
+    source_adr: "ADR-0001"
+    note: "Must exist in exactly one place — never duplicate this conversion."
+
+interfaces:
+  - name: "work_panel_content_injection"
+    signature: "WorkPanel.set_ui_scene(scene), WorkPanel.get_ui_root() -> Control"
+    source_adr: "ADR-0004 (pattern), documented in design/gdd/100-...md"
+    note: "How future panel-content systems (021, 022, 024, 025, 027, 029, 039) attach UI without modifying WorkPanel."
+  - name: "interactable_contract"
+    signature: "Interactable.can_interact() -> bool, Interactable.interact() -> void"
+    source_adr: "design/gdd/100-igrok-i-stancia-ot-pervogo-lica.md"
+
+forbidden_patterns:
+  - pattern: "autoload_singleton_without_adr_justification"
+    reason: "MCP live bridge injects a temporary autoload every dev session — code that assumes a fixed autoload list breaks the moment the bridge is present."
+    source_adr: "ADR-0004"
+  - pattern: "gravity_or_up_direction_reimplemented_outside_StationRoot"
+    reason: "Would silently diverge from the single source of truth and break aiming accuracy (NFR-03: ≤0.05° direction error)."
+    source_adr: "ADR-0001, ADR-0002"
+  - pattern: "coriolis_force_simulation"
+    reason: "Explicitly rejected — makes walking direction-dependent for no gameplay payoff in a non-spaceflight-realism game."
+    source_adr: "ADR-0002"
+  - pattern: "third_party_addons_or_gdextension"
+    reason: "Project-wide GDScript-only constraint."
+    source_adr: "ADR-0003"
+  - pattern: "post_4.2_godot_api_usage"
+    reason: "API compatibility floor mitigates the engine-version-vs-LLM-knowledge gap without maintaining a breaking-changes reference set."
+    source_adr: "ADR-0003"
+
+api_decisions:
+  - decision: "two_layer_world_local_and_deep"
+    detail: "Local (1:1 m, r=2000m, physics-authoritative) + Deep (SubViewport, logarithmic distance compression, camera copies main camera rotation each frame)"
+    source_adr: "ADR-0001"
+  - decision: "player_is_child_of_rotating_ring"
+    detail: "CharacterBody3D parented under RotatingRing; velocity math in ring-local space, converted to global once per frame around move_and_slide()"
+    source_adr: "ADR-0002"
+  - decision: "engine_stack_pin"
+    detail: "Godot 4.7 Forward+, GDScript only, Jolt Physics, D3D12 on Windows, API floor = stable-since-4.2"
+    source_adr: "ADR-0003"
