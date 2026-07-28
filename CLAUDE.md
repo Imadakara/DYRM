@@ -10,45 +10,42 @@ communication station in orbit around Neptune (year 2426). The player decodes me
 and aims a laser to relay the message — under increasing equipment failures, encryption, queues and
 time pressure. Genre: Simulation · Puzzle · Time Management · Sci-Fi · First Person.
 
-**Current state: two MVP systems shipped** — 000 (Игровое окружение) and 100 (Игрок и станция от
-первого лица), see git commits "System 0 mvp done" / "System 1 mvp done". `scenes/`, `src/`,
-`resources/`, `materials/`, `tools/` are populated; 51 of 53 planned systems remain not started (see
-`design/gdd/systems-index.md`).
+**Current state: no code, scenes or resources exist yet.** Only `project.godot`, `icon.svg`,
+`.gitignore`/`.editorconfig`/`.gitattributes` are in place. The first implementation task is ТЗ-000
+("Игровое окружение"), which scaffolds `scenes/`, `src/`, `resources/`, `materials/`, `tools/`.
 
-## Development pipeline (gamedev plugin)
+## Two-repository split
 
-As of 2026-07-28 the project fully adopted the `gamedev` Claude Code plugin as its development
-pipeline, replacing the prior two-repository ГДД→ТЗ process below. Design docs, architecture
-decisions, and production tracking now live **inside this repo**, in the layout the plugin's skills
-expect:
+Design docs and code live in **separate repositories on purpose** — documentation outlives several
+code iterations:
 
-- `design/gdd/game-concept.md`, `design/gdd/systems-index.md` — concept and systems registry.
-- `design/gdd/NNN-kebab-case-name.md` — one GDD per system, **`NNN` keeps the pre-existing ТЗ
-  numbering convention** (GDD dotted number with the dot removed: `0.1`→`001`, `2.7`→`027`, a whole
-  block→`000`) for continuity with code comments (`# FR-12`, `TODO(ТЗ-027)`) and cross-references
-  already embedded in the two shipped systems. See the naming-convention note at the top of
-  `design/gdd/systems-index.md` before running `/design-system` or `/map-systems`.
-- `docs/architecture/adr-NNNN-slug.md` — Architecture Decision Records (`/architecture-decision`).
-- `docs/architecture/tr-registry.yaml`, `docs/registry/architecture.yaml` — stable requirement IDs
-  and locked architectural stances (`/architecture-review`).
-- `docs/architecture/control-manifest.md` — the flat, per-layer rules sheet for programmers
-  (`/create-control-manifest`).
-- `production/epics/`, `production/sprint-status.yaml`, `production/stage.txt`,
-  `production/review-mode.txt` (set to `lean`) — production tracking.
+- **`DYRM`** (this repo): code, scenes, resources, tests, Claude Code skills.
+- **`DYRM Docs`** (sibling repo, not this one): concept doc, GDD, and per-system technical specs
+  (ТЗ). Layout: `Идея игры - DYRM.md` (concept/MVP), `ГДД - Перечень систем.md` (registry of all 53
+  systems), `ТЗ/ТЗ-NNN — Название.md` (one spec per system), `ТЗ/_ШАБЛОН ТЗ.md` (template mirror).
 
-Workflow going forward: **`/map-systems` → `/design-system` (GDD) → `/architecture-decision` (ADR)
-→ `/create-epics` → `/create-stories` → `/dev-story` → `/story-done`**, gated by `/gate-check`
-between phases. See `docs/adoption-plan-2026-07-28.md` for the full migration record, including how
-the two already-shipped systems were backfilled into this format.
+Workflow: **ГДД (what the system is) → ТЗ (how to build it) → Claude Code implementation → review
+against acceptance criteria.** One GDD system = one ТЗ document = one Claude Code task; never mix
+systems in a single task — scope boundaries are the main quality-control lever. Each ТЗ contains a
+self-contained, copy-pasteable prompt for Claude Code in its section 13.
 
-**Legacy (historical reference only, not part of the active workflow):** the prior process —
-sibling repo `DYRM Docs` (concept doc, `ГДД - Перечень систем.md`, `ТЗ/ТЗ-NNN — Название.md` specs)
-plus the project-scoped `dyrm-tz` skill (`.claude/skills/dyrm-tz/`) — produced the original design
-for systems 000 and 100 and is preserved there unmodified. `design/gdd/000-*.md` and
-`design/gdd/100-*.md` are direct ports of `ТЗ-000`/`ТЗ-100` (no new decisions made in the port); the
-original ТЗ documents remain the more detailed historical implementation record, cited from the new
-GDDs. Do not write new ТЗ documents or invoke `dyrm-tz` for new work — use the gamedev plugin skills
-above instead.
+ТЗ naming: `ТЗ-NNN — Название.md`, where `NNN` is the GDD system number with the dot removed
+(`0.1`→`010`, `2.7`→`027`, a whole block→`000`).
+
+## Writing/updating ТЗ specs
+
+Use the `dyrm-tz` skill (`.claude/skills/dyrm-tz/`) for drafting or revising ТЗ documents — it
+encodes the canonical template, the process, and the five most common mistakes (scope creep,
+unverifiable requirements, non-self-contained prompts, unsourced numbers, over-specifying tooling).
+Validate a spec with:
+
+```bash
+python3 .claude/skills/dyrm-tz/scripts/validate_tz.py "путь/к/ТЗ-NNN — Название.md"
+```
+
+This checks requirement/acceptance-criteria coverage, ID uniqueness, prompt self-sufficiency, and
+file-tree consistency — not semantic correctness (that's the template's section 14 checklist, read
+by eye).
 
 ## Tech stack and constraints
 
@@ -75,8 +72,7 @@ above instead.
 - Config is **flat, typed `@export`** — `Resource`-in-`Resource` nesting no deeper than one level.
 - Inspectable state is exposed via getters and public properties, never derived from private state
   by callers.
-- **No autoloads** without explicit justification in an ADR (see `docs/architecture/adr-0004-*.md`).
-  Cross-node references go through
+- **No autoloads** without explicit justification in a ТЗ. Cross-node references go through
   `@export var ... : NodePath` or `@onready`.
 - Don't rely on a fixed autoload list or on root `SceneTree` child indices — the MCP tooling injects
   a temporary autoload into the running project. Reference nodes by name, group, or exported path.
@@ -106,7 +102,7 @@ above instead.
 
 Godot uses a right-handed system, **+Y up**, **−Z forward**. The J2000 ecliptic plane maps to the
 **XZ** plane via `godot_vec = Vector3(ecl.x, ecl.z, -ecl.y)`. This conversion exists in **exactly
-one place**, `OrbitalMath.ecliptic_to_godot()` — never duplicate it (see ADR-0001).
+one place**, `OrbitalMath.ecliptic_to_godot()` — never duplicate it.
 
 Aiming basis `Station/AimingReference` (fixed to the station truss): **+Y** = local zenith (Neptune
 center → station), **−Z** = orbital velocity vector, **+X** completes the right-handed triad.
@@ -133,13 +129,11 @@ debug twins", and "named deterministic camera angles" rules above exist.
 
 Practical gotchas for these two MCPs (process lifecycle, scene-authoring pitfalls, runtime-tool
 quirks) — not just for verification, for everyday scene/node work through them too — live in the
-global `godot-mcp-testing` skill (now grouped in the `godot` plugin —
-`~/.claude/skills/godot/skills/godot-mcp-testing/`, invoked as `godot:godot-mcp-testing`; see Tests
-section below);
-check it before improvising a workaround for odd MCP behavior. It's global (not DYRM-specific)
-since the same two MCPs and their quirks apply to any Godot project on this machine — DYRM's own
-test cases now live as Acceptance Criteria in each story/GDD (see Tests below), not in a separate
-local catalog.
+global `godot-mcp-testing` skill, grouped in the `godot` plugin
+(`~/.claude/skills/godot/skills/godot-mcp-testing/`, invoked as `godot:godot-mcp-testing`; see
+Tests section below); check it before improvising a workaround for odd MCP behavior. It's global
+(not DYRM-specific) since the same two MCPs and their quirks apply to any Godot project on this
+machine — DYRM's own test-case catalog (see Tests below) stays local, in `dyrm-tz`.
 
 ## Godot knowledge base (cross-project)
 
@@ -152,33 +146,32 @@ C:\Users\PC\Documents\Development\Claude Common\Knowledge base\Godot\godot-devel
 ```
 
 Before re-diagnosing weird engine/MCP behavior from scratch, check whether it's already recorded
-there. Populate it via the global `godot-knowledge-base` skill (also in the `godot` plugin now —
-`~/.claude/skills/godot/skills/godot-knowledge-base/`)
+there. Populate it via the global `godot-knowledge-base` skill, grouped in the `godot` plugin
+(`~/.claude/skills/godot/skills/godot-knowledge-base/`, invoked as `godot:godot-knowledge-base`)
 after finishing and verifying a ТЗ/task, if something non-trivial came up — both the file and the
 skill live outside this repo on purpose, since the same findings apply to any Godot project, not
 just DYRM.
 
 ## External Godot skill library (gd-agentic-skills)
 
-`~/.claude/skills/godot/skills/` also hosts 97 global skills from `thedivergentai/gd-agentic-skills`
-(`godot-master` plus domain/genre skills covering GDScript patterns, architecture, 2D/3D systems,
-UI, and per-genre blueprints). These are freely available to consult and draw patterns from for
-DYRM work, same as any other Godot project — no blanket restriction against using them. They now
-live grouped with `godot-mcp-testing`/`godot-knowledge-base` in one `godot` plugin purely for
-command namespacing (`/godot:godot-gdscript-mastery` etc.) — not because they're the same product;
-see the global `~/.claude/CLAUDE.md` for the distinction.
+`~/.claude/skills/godot/skills/` (part of the global `godot` skills-directory plugin — see the
+global `~/.claude/CLAUDE.md` for how that plugin is organized) also hosts 97 global skills from
+`thedivergentai/gd-agentic-skills` (`godot-master` plus domain/genre skills covering GDScript
+patterns, architecture, 2D/3D systems, UI, and per-genre blueprints), invoked with the `godot:`
+prefix (e.g. `godot:godot-gdscript-mastery`). These are freely available to consult and draw
+patterns from for DYRM work, same as any other Godot project — no blanket restriction against
+using them.
 
 That said, this file's own sections above (**Tech stack and constraints**, **Code conventions**,
-**Coordinates and units**, **Tooling**) are DYRM's deliberate, ADR-derived source of truth (see
-`docs/architecture/adr-0003-*.md`, `adr-0004-*.md`) and win whenever a pattern from that library
-would conflict with them — e.g. its `godot-autoload-architecture` skill's autoload-forward patterns
-don't override "no autoloads without explicit justification in an ADR" above; its `godot-builder`
-skill's own Python/CLI scripts
+**Coordinates and units**, **Tooling**) are DYRM's deliberate, ТЗ-000-derived source of truth and
+win whenever a pattern from that library would conflict with them — e.g. its
+`godot-autoload-architecture` skill's autoload-forward patterns don't override "no autoloads
+without explicit justification in a ТЗ" above; its `godot-builder` skill's own Python/CLI scripts
 for driving Godot headlessly are not this project's workflow — use the `godot-runtime`/`godot` MCP
-pair via the (separately global) `godot-mcp-testing` skill instead. Most of the library's genre
-blueprints and platform-adaptation skills (mobile/console/VR/web ports, multiplayer, most
-`godot-genre-*`) are simply not applicable to a singleplayer, desktop-only, first-person
-sim/puzzle game — skip them rather than forcing fit.
+pair via the `godot:godot-mcp-testing` skill instead. Most of the library's genre blueprints and
+platform-adaptation skills (mobile/console/VR/web ports, multiplayer, most `godot-genre-*`) are
+simply not applicable to a singleplayer, desktop-only, first-person sim/puzzle game — skip them
+rather than forcing fit.
 
 ## Tests
 
@@ -190,18 +183,22 @@ godot --headless --path . --script res://tools/run_tests.gd
 
 Expected output: one line per test, ending in `RESULT: <N> passed, 0 failed`, exit code 0.
 
-**All testing during development beyond this headless numeric run goes through the global
-`godot-mcp-testing` skill** (`~/.claude/skills/godot/skills/godot-mcp-testing/` — not DYRM-specific,
-same as any Godot project using this MCP pair): general MCP process/lifecycle discipline, the full
-tool catalog for both MCPs, scene-authoring/runtime tool gotchas, the calibration-scene recipe,
-screenshots, live-bridge-vs-autotests. Don't improvise MCP verification steps ad hoc.
+**All testing during development beyond this headless numeric run goes through two skills split
+by scope** — don't improvise MCP verification steps ad hoc:
 
-Per-system test cases now live as **Acceptance Criteria inside each story file**
-(`production/epics/*/NNN-*.md`) and each GDD (`design/gdd/*.md`), following the gamedev plugin's own
-`/qa-plan` and `/dev-story` conventions — not in a separate catalog. The legacy `dyrm-tz` skill's
-test-case catalogs (`references/tz-NNN-test-cases.md` for systems 000/100) remain in
-`.claude/skills/dyrm-tz/` as historical reference for those two systems' original verification
-sessions; don't extend them for new systems.
+- **`godot-mcp-testing`** (global, grouped in the `godot` plugin at
+  `~/.claude/skills/godot/skills/godot-mcp-testing/`, invoked as `godot:godot-mcp-testing` — not
+  DYRM-specific, same as any Godot project using this MCP pair): general MCP process/lifecycle discipline, the full
+  tool catalog for both MCPs, scene-authoring/runtime tool gotchas, the calibration-scene recipe,
+  screenshots, live-bridge-vs-autotests.
+- **`dyrm-tz`** (`.claude/skills/dyrm-tz/`, DYRM-specific): the test-case catalog itself — a
+  reusable card template (`references/test-case-template.md`) and per-ТЗ catalogs
+  (`references/tz-NNN-test-cases.md`), covering acceptance-criteria types that need a live project
+  (`рантайм-авто`, `визуально`) plus a regression watch-list of already-known spec deviations.
+  These are the canonical test cases for that ТЗ — consult and update them instead of re-deriving
+  verification steps from scratch. See that skill's "Зафиксировать реализацию" step for when to
+  add or update a ТЗ's catalog, and its own "Тест-кейсы: шаблон и каталог" section for the
+  run/create handlers.
 
 ## Known documentation discrepancies
 
