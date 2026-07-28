@@ -32,5 +32,12 @@ func _ready() -> void:
 	_probe_collision.shape = probe_shape
 	_probe_collision.position = _cover.position
 
+## См. Door._physics_process() — тот же баг синхронизации: CoverBody вложен в
+## SpokeHatch (Area3D-предок), собственный transform не меняется скриптом, и
+## sync_to_physics без принудительного «касания» никогда не проталкивает
+## вращение RotatingRing в PhysicsServer3D.
+func _physics_process(_delta: float) -> void:
+	_cover_body.global_transform = _cover_body.global_transform
+
 func interact(_from: Node3D) -> void:
 	pass

@@ -19,13 +19,23 @@ const AXIS_EPS: float = 0.01
 ## порог «до 0.35 м включительно»; запас компенсирует зазор коллизии Jolt
 ## на самой границе, не расширяя фактически преодолимую высоту заметно).
 const STEP_UP_MARGIN_M: float = 0.02
-## Порог скорости, ниже которого игрок считается неподвижным и результат
-## move_and_slide() откатывается (см. комментарий в _physics_process). Взят
-## с запасом на один кадр свободного падения (g·dt на полу ≈ 0.049 м/с), но
-## заметно меньше скорости шага (2.0 м/с). Подобран эмпирически — соотношение
-## с остаточным дрейфом немонотонно (тонкий эффект разрешения контакта в
-## Jolt), см. отчёт по ТЗ-100 о статусе AC-07.
+## Порог ГОРИЗОНТАЛЬНОЙ скорости, ниже которого считаем, что игрок не пытается
+## идти намеренно. Только это, само по себе, НЕ решает, откатывать ли дрейф
+## этого кадра — см. was_resting в _physics_process, где это условие сочетается
+## с _airborne_streak_frames. Раньше порог проверялся против ПОЛНОЙ скорости
+## (горизонталь + радиаль) и его приходилось расширять, чтобы пережить мигание
+## опоры на стыках хорд — это сломало реальные прыжки и разгон ходьбы (широкий
+## порог считал часть настоящего прыжка/торможения «покоем» и откатывал их).
+## Разнесение на два независимых сигнала (эта константа — горизонталь;
+## _airborne_streak_frames — радиаль) решает обе задачи, не мешая друг другу.
 const REST_VELOCITY_EPS_M_S: float = 0.08
+## Сколько кадров подряд без опоры ещё считается миганием is_on_floor() на
+## стыке 16-хордовой аппроксимации пола (эмпирически бывает до 3 кадров
+## подряд), а не настоящим прыжком/падением. Настоящий прыжок либо вообще не
+## попадает в эту ветку (реальный горизонтальный ввод сразу даёт
+## REST_VELOCITY_EPS_M_S false), либо остаётся без опоры на порядок дольше
+## этого запаса — отличить легко.
+const MAX_FLICKER_AIRBORNE_FRAMES: int = 6
 
 signal module_changed(module_id: StringName)
 signal footstep(surface_id: StringName, speed: float)
@@ -67,6 +77,9 @@ var _up_global: Vector3 = Vector3.UP
 var _current_module: StringName = &""
 var _stride_accum_m: float = 0.0
 var _was_grounded: bool = false
+## Кадров подряд без опоры — см. MAX_FLICKER_AIRBORNE_FRAMES. Обновляется в
+## конце _physics_process, читается в начале следующего.
+var _airborne_streak_frames: int = 0
 
 func _ready() -> void:
 	_station = get_node_or_null(station_path) as StationRoot
@@ -89,7 +102,7 @@ func _ready() -> void:
 	up_direction = Vector3.UP
 	floor_max_angle = deg_to_rad(config.max_slope_deg)
 	floor_snap_length = config.step_height_m
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	set_mouse_captured(true)
 
 func _physics_process(delta: float) -> void:
 	_poll_physical_input()
@@ -163,13 +176,15 @@ func _physics_process(delta: float) -> void:
 	# трансформа и при возобновлении движения даёт рывок/подвисание в воздухе)
 	# — но в полном покое результат отбрасывается: сцепление с вращением
 	# кольца уже даёт бесплатно родительский Node3D-трансформ (A-01).
-	# Не гейтим is_on_floor() «до» шага: на стыках 16 хорд дуги (R-04) он
-	# иногда на кадр мигает false даже когда игрок фактически стоит, и это
-	# пропускало дрейф именно в мигающие кадры. Порог по скорости берём с
-	# запасом на один кадр свободного падения (g·dt≈0.049 м/с) — иначе
-	# ложные срабатывания на самих стыках. Апекс прыжка (v_up→0 на миг)
-	# задевает эту ветку максимум на один кадр — незаметно.
-	var was_resting: bool = not _stepped_up_this_frame and local_velocity.length() < REST_VELOCITY_EPS_M_S
+	# Два независимых условия, а не одна проверка полной скорости (см. отчёт
+	# по ТЗ-100 — единый порог либо пропускал мигание опоры на стыках хорд,
+	# либо, расширенный, ломал настоящие прыжки/разгон). Горизонталь: нет
+	# намеренного движения (ввод погашен торможением). Радиаль: без опоры не
+	# дольше, чем длится мигание на стыке — иначе это уже настоящий
+	# прыжок/падение, и откатывать его нельзя.
+	var no_intentional_move: bool = horizontal_velocity.length() < REST_VELOCITY_EPS_M_S
+	var recent_floor_contact: bool = _airborne_streak_frames <= MAX_FLICKER_AIRBORNE_FRAMES
+	var was_resting: bool = not _stepped_up_this_frame and no_intentional_move and recent_floor_contact
 	var pos_before_slide: Vector3 = global_position
 	velocity = ring_basis * local_velocity - get_platform_velocity()
 	move_and_slide()
@@ -201,6 +216,7 @@ func _physics_process(delta: float) -> void:
 			var radial_scale: float = _station.config.ring_radius_m / current_radius
 			position.x *= radial_scale
 			position.z *= radial_scale
+	_airborne_streak_frames = 0 if is_on_floor() else _airborne_streak_frames + 1
 	_update_footstep(horizontal_velocity, delta)
 	_update_grounded_signal()
 	_update_current_module()
@@ -234,14 +250,26 @@ func _poll_physical_input() -> void:
 		trigger_interact()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"ui_cancel"):
+		# Esc отпускает системный курсор мыши (виден, не заперт окном) — иначе
+		# окно нечем закрыть/свернуть, курсор невидим и заперт в клиентской
+		# области. Возврат — по клику (ветка ниже), стандартная для жанра пара.
+		set_mouse_captured(false)
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion := event as InputEventMouseMotion
 		var sens: float = config.mouse_sensitivity_deg_px * config.mouse_sensitivity_multiplier
-		var y_sign: float = -1.0 if config.invert_y else 1.0
+		var y_sign: float = 1.0 if config.invert_y else -1.0
 		add_look_input(Vector2(-motion.relative.x * sens, motion.relative.y * sens * y_sign))
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and _interaction_probe != null:
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			if mb.pressed:
+				set_mouse_captured(true)
+			return
+		if _interaction_probe != null:
 			var target: Interactable = _interaction_probe.get_target()
 			if target != null:
 				target.receive_click(mb.pressed)
@@ -370,6 +398,16 @@ func trigger_interact() -> void:
 	if distance < 0.0 or distance > interaction_config.interact_range_m:
 		return
 	target.interact(self)
+
+## Программный дубль Esc/клика по вьюпорту: захват системного курсора мыши
+## окном. `false` — курсор виден и свободен (окно можно свернуть/закрыть,
+## переключиться на другое приложение); `true` — заперт и невидим, обзор
+## управляется мышью как обычно.
+func set_mouse_captured(captured: bool) -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
+
+func is_mouse_captured() -> bool:
+	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 
 func _is_input_suppressed() -> bool:
 	if _interaction_probe == null:

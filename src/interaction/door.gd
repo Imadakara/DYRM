@@ -42,6 +42,22 @@ func _ready() -> void:
 
 	_apply_state()
 
+## `LeafBody` вложен в `Door` (Area3D-предок, см. Interactable), а его СОБСТВЕННЫЙ
+## local-transform никогда не меняется скриптом — движется только унаследованно
+## от вращающегося RotatingRing. Из-за этого Godot не рассылает
+## NOTIFICATION_TRANSFORM_CHANGED вглубь дерева и sync_to_physics НИКОГДА не
+## проталкивает новый трансформ в физический сервер: PhysicsServer3D навсегда
+## застревает на позиции самого первого кадра (проверено эмпирически — см. отчёт
+## по ТЗ-100 о периодических «подпрыгиваниях» игрока на стыках кольца, где
+## застрявшая где угодно на кольце дверь эпизодически перекрывала пол под
+## игроком). У пола та же схема (StationModule/Collision — AnimatableBody3D под
+## вращающимся кольцом) работает корректно, потому что между ним и RotatingRing
+## нет Area3D-предка. Переприсваивание — не no-op для Node3D: сеттер
+## global_transform всегда рассылает нотификацию, даже если значение совпадает
+## с текущим, и именно так реально форсируется пересинхронизация.
+func _physics_process(_delta: float) -> void:
+	_leaf_body.global_transform = _leaf_body.global_transform
+
 func interact(from: Node3D) -> void:
 	if not can_interact(from):
 		return
