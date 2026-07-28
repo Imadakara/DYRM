@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PanelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/interaction/panel_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+surface_size_m = Vector2(0.6, 0.45)
+viewport_size_px = Vector2i(1024, 768)
+min_element_size_m = 0.04
+mount_height_min_m = 0.9
+mount_height_max_m = 1.9
+work_distance_min_m = 0.8
+work_distance_max_m = 1.5
+frame_thickness_m = 0.03
+frame_depth_m = 0.04

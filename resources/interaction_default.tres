@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="InteractionConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/interaction/interaction_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+ray_length_m = 2.0
+interact_range_m = 2.0
+prompt_format = "[E] %s"
+crosshair_idle_size_px = 4.0
+crosshair_active_size_px = 12.0

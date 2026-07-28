@@ -1,0 +1,117 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://src/dev/movement_calibration.gd" id="1"]
+[ext_resource type="Script" path="res://src/core/game_clock.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/station/station.tscn" id="3"]
+[ext_resource type="Script" path="res://src/core/debug_overlay.gd" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/player/interaction_hud.tscn" id="5"]
+
+[sub_resource type="Environment" id="CalibrationEnvironment"]
+background_mode = 1
+background_color = Color(0, 0, 0, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.02
+tonemap_mode = 3
+
+[node name="MovementCalibration" type="Node3D"]
+script = ExtResource("1")
+player_path = NodePath("Station/RotatingRing/Player")
+
+[node name="GameClock" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="Station" parent="." instance=ExtResource("3")]
+
+[node name="Lighting" type="Node3D" parent="."]
+
+[node name="SunLight" type="DirectionalLight3D" parent="Lighting"]
+transform = Transform3D(-0.8298530692629954, -0.0023603345637715598, -0.557976981833062, 0, 0.9999910529731397, -0.004230126909609664, 0.557981974112772, -0.0035103837993115694, -0.8298456445452946, 0, 0, 0)
+light_color = Color(1, 0.956863, 0.909804, 1)
+light_energy = 0.15
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting"]
+environment = SubResource("CalibrationEnvironment")
+
+[node name="InteractionHUD" parent="." instance=ExtResource("5")]
+probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("4")
+game_clock_path = NodePath("../GameClock")
+station_root_path = NodePath("../Station")
+player_path = NodePath("../Station/RotatingRing/Player")
+interaction_probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
+
+[node name="Panel" type="PanelContainer" parent="DebugOverlay"]
+offset_right = 420.0
+offset_bottom = 220.0
+
+[node name="Labels" type="VBoxContainer" parent="DebugOverlay/Panel"]
+layout_mode = 2
+
+[node name="FpsLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FPS: 0"
+
+[node name="EpochLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "epoch_days: 0"
+
+[node name="TimeScaleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "time_scale: 1x"
+
+[node name="StationPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "station (km): 0, 0, 0"
+
+[node name="RingAngleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ring angle: 0 deg"
+
+[node name="BodiesLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+
+[node name="PlayerModuleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "module: -"
+
+[node name="PlayerPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "pos: 0, 0, 0"
+
+[node name="PlayerRadiusLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "radius: 0 m"
+
+[node name="PlayerUpLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "up: 0, 1, 0"
+
+[node name="PlayerVelLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "local_velocity: 0, 0, 0"
+
+[node name="PlayerGroundedLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "grounded: false"
+
+[node name="PlayerTargetLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "target: -"

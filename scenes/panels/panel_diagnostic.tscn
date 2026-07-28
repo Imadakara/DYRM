@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/interaction/work_panel.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/panels/panel_diagnostic_content.tscn" id="2"]
+
+[sub_resource type="StandardMaterial3D" id="FrameMaterial_Yellow"]
+albedo_color = Color(0.95, 0.85, 0.05, 1)
+metallic = 0.3
+roughness = 0.5
+
+[node name="DiagnosticPanel" instance=ExtResource("1")]
+panel_id = &"diagnostic"
+display_name = "ДИАГНОСТИКА / ТЗ-100"
+prompt_text = "Работать с диагностической панелью"
+frame_material = SubResource("FrameMaterial_Yellow")
+initial_content = ExtResource("2")

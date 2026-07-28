@@ -1,0 +1,39 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/player/player_controller.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/player_default.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/interaction_default.tres" id="3"]
+[ext_resource type="Script" path="res://src/player/player_camera.gd" id="4"]
+[ext_resource type="Script" path="res://src/interaction/interaction_probe.gd" id="5"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+height = 1.8
+radius = 0.35
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1")
+collision_layer = 1
+collision_mask = 1
+config = ExtResource("2")
+interaction_config = ExtResource("3")
+camera_pivot_path = NodePath("CameraPivot")
+camera_path = NodePath("CameraPivot/PlayerCamera")
+interaction_probe_path = NodePath("CameraPivot/PlayerCamera/InteractionProbe")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+position = Vector3(0, 1.65, 0)
+
+[node name="PlayerCamera" type="Camera3D" parent="CameraPivot"]
+current = false
+near = 0.05
+far = 500.0
+script = ExtResource("4")
+config = ExtResource("2")
+
+[node name="InteractionProbe" type="Node3D" parent="CameraPivot/PlayerCamera"]
+script = ExtResource("5")
+camera_path = NodePath("..")
+config = ExtResource("3")

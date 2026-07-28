@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/environment/station/station_module.gd" id="1"]
 [ext_resource type="Resource" path="res://materials/mat_interior.tres" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/panels/panel_diagnostic.tscn" id="3"]
 
 [node name="ModuleEngineering" type="Node3D"]
 script = ExtResource("1")
@@ -12,3 +13,6 @@ hull_material = ExtResource("2")
 [node name="Hull" type="MeshInstance3D" parent="."]
 
 [node name="Collision" type="AnimatableBody3D" parent="."]
+
+[node name="DiagnosticPanel" parent="." instance=ExtResource("3")]
+transform = Transform3D(0.3826834, 0, -0.9238795, 0.9238795, 0, 0.3826834, 0, -1, 0, -54.324114, 1.2, -22.502)

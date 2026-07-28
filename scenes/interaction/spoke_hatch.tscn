@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/interaction/spoke_hatch.gd" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="HatchMaterial"]
+albedo_color = Color(0.25, 0.32, 0.4, 1)
+metallic = 0.5
+roughness = 0.5
+
+[node name="SpokeHatch" type="Area3D"]
+script = ExtResource("1")
+collision_layer = 1
+collision_mask = 1
+prompt_text = "Заперто"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+
+[node name="Cover" type="MeshInstance3D" parent="."]
+material_override = SubResource("HatchMaterial")
+
+[node name="CoverBody" type="AnimatableBody3D" parent="."]
+
+[node name="CoverCollision" type="CollisionShape3D" parent="CoverBody"]

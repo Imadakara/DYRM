@@ -22,7 +22,14 @@ const MIN_TIME_SCALE: float = 1.0
 const MAX_TIME_SCALE: float = 1_000_000.0
 const TIME_SCALE_STEP: float = 10.0
 
-func _process(delta: float) -> void:
+## _physics_process, не _process: RotatingRing (см. ring_rotator.gd) — потомок
+## этого сигнала, а его поворот несут коллизии игрока и станции (ТЗ-100,
+## AnimatableBody3D-полы под ним). Если поворот кольца обновляется на кадрах
+## _process (идёт не в такт физике), синхронизация трансформов с физическим
+## сервером на границе физкадра расходится с реальным углом поворота —
+## визуально незаметно, но даёт систематический дрейф позиции у всего, что
+## стоит на вращающемся полу (обнаружено при отладке ТЗ-100, AC-07).
+func _physics_process(delta: float) -> void:
 	if paused:
 		return
 	advance(delta)

@@ -17,6 +17,13 @@ extends Node3D
 @export var config: StationConfig
 @export var hull_material: Material
 
+## Толщина коллизии пола/потолка/стен, м. Тонкие слои по всем 4 поверхностям
+## тубы вместо одного сплошного блока на весь deck_height_m — см. отчёт
+## ТЗ-100 (обходимая, но блокирующая проблема унаследованного ТЗ-000: старая
+## коллизия заполняла ВЕСЬ отсек монолитом при полностью полой видимой
+## геометрии build_ring_arc_mesh, из-за чего игрок спавнился внутри камня).
+const WALL_THICKNESS_M: float = 0.3
+
 @onready var spawn_point: Marker3D = $Spawn
 @onready var _hull: MeshInstance3D = $Hull
 ## AnimatableBody3D, не StaticBody3D: этот узел лежит под RotatingRing и
@@ -46,20 +53,47 @@ func _build_geometry() -> void:
 	spawn_point.position = radial_dir * (floor_radius_m - 1.0)
 
 	var mid_radius_m: float = (floor_radius_m + ceiling_radius_m) * 0.5
+	_build_collision(angle_start_rad, angle_end_rad, floor_radius_m, ceiling_radius_m, half_width_m)
+
+	_build_interior_lights(angle_start_rad, angle_end_rad, mid_radius_m)
+
+## Четыре тонких коллайдера на хорду (пол/потолок/2 стены) — повторяет полую
+## структуру build_ring_arc_mesh. Один сплошной блок на весь deck_height_m
+## оставлял бы отсек монолитом без свободного пространства для ходьбы.
+func _build_collision(angle_start_rad: float, angle_end_rad: float,
+		floor_radius_m: float, ceiling_radius_m: float, half_width_m: float) -> void:
+	var mid_radius_m: float = (floor_radius_m + ceiling_radius_m) * 0.5
 	var chord_len_m: float = StationMeshBuilder.ring_arc_chord_length(
 			angle_start_rad, angle_end_rad, mid_radius_m, config.arc_segment_count)
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(chord_len_m, config.tube_width_m, config.deck_height_m)
 
+	# Плиты выступают НАРУЖУ от полой зоны (пол — за r=floor_radius_m в сторону
+	# корпуса, потолок — за r=ceiling_radius_m в сторону оси), а не внутрь неё:
+	# ходимая поверхность должна остаться ровно на floor_radius_m (AC-06,
+	# радиус 60,00 ± 0,05 м), а не на floor_radius_m - WALL_THICKNESS_M/2.
+	var floor_shape := BoxShape3D.new()
+	floor_shape.size = Vector3(chord_len_m, config.tube_width_m, WALL_THICKNESS_M)
+	_add_collision_layer(angle_start_rad, angle_end_rad,
+			floor_radius_m + WALL_THICKNESS_M * 0.5, floor_shape)
+
+	var ceiling_shape := BoxShape3D.new()
+	ceiling_shape.size = Vector3(chord_len_m, config.tube_width_m, WALL_THICKNESS_M)
+	_add_collision_layer(angle_start_rad, angle_end_rad,
+			ceiling_radius_m - WALL_THICKNESS_M * 0.5, ceiling_shape)
+
+	var wall_shape := BoxShape3D.new()
+	wall_shape.size = Vector3(chord_len_m, WALL_THICKNESS_M, config.deck_height_m)
+	_add_collision_layer(angle_start_rad, angle_end_rad, mid_radius_m, wall_shape, half_width_m)
+	_add_collision_layer(angle_start_rad, angle_end_rad, mid_radius_m, wall_shape, -half_width_m)
+
+func _add_collision_layer(angle_start_rad: float, angle_end_rad: float, radius_m: float,
+		shape: BoxShape3D, y_offset_m: float = 0.0) -> void:
 	var transforms: Array[Transform3D] = StationMeshBuilder.ring_arc_collision_transforms(
-			angle_start_rad, angle_end_rad, mid_radius_m, config.arc_segment_count)
+			angle_start_rad, angle_end_rad, radius_m, config.arc_segment_count)
 	for local_transform in transforms:
 		var collision_shape := CollisionShape3D.new()
 		collision_shape.shape = shape
-		collision_shape.transform = local_transform
+		collision_shape.transform = local_transform.translated(Vector3.UP * y_offset_m)
 		_collision_root.add_child(collision_shape)
-
-	_build_interior_lights(angle_start_rad, angle_end_rad, mid_radius_m)
 
 ## Внутреннее освещение отсека: несколько OmniLight3D, равномерно расставленных
 ## вдоль дуги модуля на середине высоты отсека. Раздел 9.2.

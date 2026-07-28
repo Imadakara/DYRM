@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://src/environment/station/station_root.gd" id="1"]
 [ext_resource type="Script" path="res://src/environment/station/ring_rotator.gd" id="2"]
@@ -12,6 +12,9 @@
 [ext_resource type="PackedScene" path="res://scenes/station/modules/module_docking.tscn" id="10"]
 [ext_resource type="PackedScene" path="res://scenes/station/equipment/laser_mount.tscn" id="11"]
 [ext_resource type="PackedScene" path="res://scenes/station/equipment/dish_antenna.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/door.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/spoke_hatch.tscn" id="15"]
 
 [sub_resource type="BoxMesh" id="RadiatorMesh"]
 size = Vector3(8, 30, 0.3)
@@ -127,14 +130,55 @@ config = ExtResource("3")
 [node name="SpokeHatch_1" type="Marker3D" parent="RotatingRing/Arcs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.5779, 0, 41.5779)
 
+[node name="Hatch" parent="RotatingRing/Arcs/SpokeHatch_1" instance=ExtResource("15")]
+transform = Transform3D(-0.7071068, 0, 0.7071068, -0.7071068, 0, -0.7071068, 0, -1, 0, 0, 0, 0)
+
 [node name="SpokeHatch_2" type="Marker3D" parent="RotatingRing/Arcs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -41.5779, 0, 41.5779)
+
+[node name="Hatch" parent="RotatingRing/Arcs/SpokeHatch_2" instance=ExtResource("15")]
+transform = Transform3D(-0.7071068, 0, -0.7071068, 0.7071068, 0, -0.7071068, 0, -1, 0, 0, 0, 0)
 
 [node name="SpokeHatch_3" type="Marker3D" parent="RotatingRing/Arcs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -41.5779, 0, -41.5779)
 
+[node name="Hatch" parent="RotatingRing/Arcs/SpokeHatch_3" instance=ExtResource("15")]
+transform = Transform3D(0.7071068, 0, -0.7071068, 0.7071068, 0, 0.7071068, 0, -1, 0, 0, 0, 0)
+
 [node name="SpokeHatch_4" type="Marker3D" parent="RotatingRing/Arcs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.5779, 0, -41.5779)
+
+[node name="Hatch" parent="RotatingRing/Arcs/SpokeHatch_4" instance=ExtResource("15")]
+transform = Transform3D(0.7071068, 0, 0.7071068, -0.7071068, 0, 0.7071068, 0, -1, 0, 0, 0, 0)
+
+[node name="Player" parent="RotatingRing" instance=ExtResource("13")]
+station_path = NodePath("../..")
+
+[node name="Doors" type="Node3D" parent="RotatingRing"]
+
+[node name="Door_0" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Door_1" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, -0.7071068, 0, -0.7071068, -0.7071068, 0, 0.7071068, 42.4264, 0, 42.4264)
+
+[node name="Door_2" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 60)
+
+[node name="Door_3" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, 0.7071068, 0, -0.7071068, -0.7071068, 0, -0.7071068, -42.4264, 0, 42.4264)
+
+[node name="Door_4" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, 1, 0, 0, 0, 0, -1, -60, 0, 0)
+
+[node name="Door_5" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, 0.7071068, 0, 0.7071068, 0.7071068, 0, -0.7071068, -42.4264, 0, -42.4264)
+
+[node name="Door_6" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, -60)
+
+[node name="Door_7" parent="RotatingRing/Doors" instance=ExtResource("14")]
+transform = Transform3D(0, 1, 0, -0.7071068, 0, 0.7071068, 0.7071068, 0, 0.7071068, 42.4264, 0, -42.4264)
 
 [node name="DespunTruss" type="Node3D" parent="."]
 

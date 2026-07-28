@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/station/station.tscn" id="4"]
 [ext_resource type="Script" path="res://src/core/debug_fly_camera.gd" id="5"]
 [ext_resource type="Script" path="res://src/core/debug_overlay.gd" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/player/interaction_hud.tscn" id="7"]
 
 [sub_resource type="QuadMesh" id="BackgroundQuadMesh"]
 size = Vector2(8000, 8000)
@@ -75,11 +76,16 @@ transform = Transform3D(0.8298530692629954, -0.0023603345637715598, 0.5579769818
 [node name="Preset_5" type="Marker3D" parent="CameraPresets"]
 transform = Transform3D(0.7071067811865476, -0.19245008972987532, 0.6804138174397717, 0, 0.9622504486493764, 0.27216552697590873, -0.7071067811865476, -0.19245008972987532, 0.6804138174397717, 25, 30, 25)
 
+[node name="InteractionHUD" parent="." instance=ExtResource("7")]
+probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
+
 [node name="DebugOverlay" type="CanvasLayer" parent="."]
 script = ExtResource("6")
 game_clock_path = NodePath("../GameClock")
 station_root_path = NodePath("../Station")
 solar_system_path = NodePath("../SolarSystem")
+player_path = NodePath("../Station/RotatingRing/Player")
+interaction_probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
 
 [node name="Panel" type="PanelContainer" parent="DebugOverlay"]
 offset_right = 420.0
@@ -117,3 +123,38 @@ text = "ring angle: 0 deg"
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
+
+[node name="PlayerModuleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "module: -"
+
+[node name="PlayerPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "pos: 0, 0, 0"
+
+[node name="PlayerRadiusLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "radius: 0 m"
+
+[node name="PlayerUpLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "up: 0, 1, 0"
+
+[node name="PlayerVelLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "local_velocity: 0, 0, 0"
+
+[node name="PlayerGroundedLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "grounded: false"
+
+[node name="PlayerTargetLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "target: -"

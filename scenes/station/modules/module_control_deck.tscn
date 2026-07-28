@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/environment/station/station_module.gd" id="1"]
 [ext_resource type="Resource" path="res://materials/mat_interior.tres" id="2"]
 [ext_resource type="Resource" path="res://materials/mat_glass.tres" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/work_panel.tscn" id="4"]
 
 [sub_resource type="BoxMesh" id="CupolaMesh"]
 size = Vector3(2.0, 0.05, 3.0)
@@ -37,6 +38,62 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.544, -1.2, 24.2998)
 
 [node name="Panel_StationControl" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.1316, 1.2, 25.1887)
+
+[node name="WorkPanel_Registrar" parent="." instance=ExtResource("4")]
+panel_id = &"registrar"
+display_name = "Регистратор входящих"
+responsible_tz = "ТЗ-021"
+prompt_text = "Работать: Регистратор входящих"
+mount_marker_path = NodePath("../Panel_Registrar")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_Decoder" parent="." instance=ExtResource("4")]
+panel_id = &"decoder"
+display_name = "Дешифратор"
+responsible_tz = "ТЗ-022"
+prompt_text = "Работать: Дешифратор"
+mount_marker_path = NodePath("../Panel_Decoder")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_TxLog" parent="." instance=ExtResource("4")]
+panel_id = &"tx_log"
+display_name = "Журнал передачи"
+responsible_tz = "ТЗ-024"
+prompt_text = "Работать: Журнал передачи"
+mount_marker_path = NodePath("../Panel_TxLog")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_StarMap" parent="." instance=ExtResource("4")]
+panel_id = &"star_map"
+display_name = "Звёздная 3D-карта"
+responsible_tz = "ТЗ-025"
+prompt_text = "Работать: Звёздная карта"
+mount_marker_path = NodePath("../Panel_StarMap")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_Transmitter" parent="." instance=ExtResource("4")]
+panel_id = &"transmitter"
+display_name = "Управление передатчиком"
+responsible_tz = "ТЗ-027"
+prompt_text = "Работать: Передатчик"
+mount_marker_path = NodePath("../Panel_Transmitter")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_TxStatus" parent="." instance=ExtResource("4")]
+panel_id = &"tx_status"
+display_name = "Состояние передачи"
+responsible_tz = "ТЗ-029"
+prompt_text = "Работать: Состояние передачи"
+mount_marker_path = NodePath("../Panel_TxStatus")
+station_path = NodePath("../../../..")
+
+[node name="WorkPanel_StationControl" parent="." instance=ExtResource("4")]
+panel_id = &"station_control"
+display_name = "Блок управления станцией"
+responsible_tz = "ТЗ-039"
+prompt_text = "Работать: Управление станцией"
+mount_marker_path = NodePath("../Panel_StationControl")
+station_path = NodePath("../../../..")
 
 [node name="Cupola" type="MeshInstance3D" parent="."]
 transform = Transform3D(0, 0.9945218953682733, -0.10452846326765347, 1, 0, 0, 0, 0.10452846326765347, 0.9945218953682733, 59.64645067471219, 0, 6.269094584477517)
