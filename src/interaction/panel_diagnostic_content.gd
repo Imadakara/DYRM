@@ -1,6 +1,10 @@
 ## Содержимое диагностической панели: кнопка со счётчиком, переключатель,
 ## ползунок, текстовое поле — доказательство работоспособности каркаса
 ## WorkPanel и мишень автотестов (ТЗ-100, FR-45).
+##
+## @tool: заголовок/текст кнопки выставляются и в редакторе — панель
+## открывается уже собранной, см. класс-комментарий StationModule.
+@tool
 class_name PanelDiagnosticContent
 extends Control
 
@@ -14,7 +18,8 @@ var _press_count: int = 0
 
 func _ready() -> void:
 	_title_label.text = "ДИАГНОСТИКА / ТЗ-100"
-	_counter_button.pressed.connect(_on_counter_button_pressed)
+	if not _counter_button.pressed.is_connected(_on_counter_button_pressed):
+		_counter_button.pressed.connect(_on_counter_button_pressed)
 	_update_button_text()
 
 func _on_counter_button_pressed() -> void:

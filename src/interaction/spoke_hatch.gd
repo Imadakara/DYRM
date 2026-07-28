@@ -1,6 +1,10 @@
 ## Люк в спицу: заперт, взаимодействие всегда отклоняется (ТЗ-100, FR-36, A-05).
 ## Остаётся целью для InteractionProbe (показывает подсказку об отказе), но
 ## interact() не меняет состояние и не испускает activated.
+##
+## @tool: створка получает меш/коллизию и в редакторе — станция открывается
+## уже собранной, см. класс-комментарий StationModule.
+@tool
 class_name SpokeHatch
 extends Interactable
 
@@ -37,6 +41,8 @@ func _ready() -> void:
 ## sync_to_physics без принудительного «касания» никогда не проталкивает
 ## вращение RotatingRing в PhysicsServer3D.
 func _physics_process(_delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	_cover_body.global_transform = _cover_body.global_transform
 
 func interact(_from: Node3D) -> void:
