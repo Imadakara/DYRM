@@ -1,0 +1,68 @@
+## Параметры гантелеобразной станции (см. документацию 0.1.1 «Конфигурация
+## станции», раздел «Изменения после ревью» ТЗ-000). Неподвижный ствол —
+## антенный модуль → модуль-втулка → модуль передачи, вдоль локальной оси +Y
+## StationRoot. На втулке — вращающийся барабан с двумя симметричными плечами
+## (коридор + модуль), несущими жилой и рабочий модуль.
+class_name DumbbellStationConfig
+extends Resource
+
+## Число прямых сегментов на окружность сечения трубы (сглаживание цилиндра).
+@export var segment_count: int = 16
+
+## Толщина коллизионных плит стен/торцов, метры (см. WALL_THICKNESS_M в
+## station_module.gd — то же соображение: тонкие слои, не сплошной монолит).
+@export var wall_thickness_m: float = 0.3
+
+# --- Неподвижный ствол (не вращается) --------------------------------------
+@export var antenna_module_radius_m: float = 3.0
+@export var antenna_module_length_m: float = 8.0
+@export var hub_shell_radius_m: float = 3.0
+@export var hub_shell_length_m: float = 6.0
+@export var transmission_module_radius_m: float = 3.0
+@export var transmission_module_length_m: float = 8.0
+
+# --- Вращающийся барабан и плечи -------------------------------------------
+## Радиус барабана — одновременно расстояние от оси вращения до начала
+## обоих плеч (коридоров).
+@export var drum_radius_m: float = 4.0
+@export var drum_length_m: float = 6.0
+
+## Коридор — чисто структурный элемент, без коллизии: игрок телепортируется
+## через люк на барабане, а не идёт по коридору пешком (документация 0.1.1,
+## «без перемещения по ним, с затенением экрана»).
+@export var corridor_radius_m: float = 1.2
+@export var corridor_length_m: float = 10.0
+
+## Жилой и рабочий модуль — симметричные "головы гантели", единственные места
+## с гравитацией "на своих ногах". Форма — дуговая четверть-секция
+## прямоугольного тора: пол и потолок ИЗОГНУТЫ по окружности вращения
+## (радиусы arc_room_inner/outer_radius_m), а не плоские — см. отчёт о
+## ревизии конфигурации 0.1.1, второе уточнение ("представь два молота").
+## Гранёный (не гладкий) профиль кривизны — arc_room_segment_count хорд.
+## arc_room_inner_radius_m — потолок (ближе к оси, здесь коннектор коридора,
+## по центру дуги — симметрично), arc_room_outer_radius_m — пол (дальше от
+## оси, целевая гравитация target_gravity_g). arc_room_axial_half_width_m —
+## половина "приплюснутого" измерения вдоль главной оси станции.
+@export var arc_room_inner_radius_m: float = 14.0
+@export var arc_room_outer_radius_m: float = 24.0
+@export var arc_room_axial_half_width_m: float = 4.0
+@export var arc_room_angle_span_deg: float = 60.0
+## Число гранёных сегментов дуги пола/потолка (6-8 по уточнению — рёбра
+## должны читаться на глаз, а не давать гладкую дугу, как у труб).
+@export var arc_room_segment_count: int = 6
+
+## Целевая гравитация на полу жилого/рабочего модуля, в g.
+@export var target_gravity_g: float = 0.3
+
+## Внутреннее освещение жилого/рабочего модуля (аналог раздела 9.2 ТЗ-000).
+@export var interior_light_count_per_module: int = 4
+@export var interior_light_color: Color = Color(1.0, 0.909804, 0.768627)
+@export var interior_light_energy: float = 1.2
+@export var interior_light_range_m: float = 12.0
+
+## Радиус, на котором достигается target_gravity_g, — совпадает с радиусом
+## пола жилого/рабочего модуля (arc_room_outer_radius_m). Используется для
+## настройки ω вращателя (см. resources/station_dumbbell_rotator.tres, где
+## под это же значение переиспользуется поле StationConfig.ring_radius_m).
+func gravity_radius_m() -> float:
+	return arc_room_outer_radius_m

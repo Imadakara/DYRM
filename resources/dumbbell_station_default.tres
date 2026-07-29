@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="DumbbellStationConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/dumbbell_station_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+segment_count = 16
+wall_thickness_m = 0.3
+antenna_module_radius_m = 3.0
+antenna_module_length_m = 8.0
+hub_shell_radius_m = 3.0
+hub_shell_length_m = 6.0
+transmission_module_radius_m = 3.0
+transmission_module_length_m = 8.0
+drum_radius_m = 4.0
+drum_length_m = 6.0
+corridor_radius_m = 1.2
+corridor_length_m = 10.0
+arc_room_inner_radius_m = 14.0
+arc_room_outer_radius_m = 24.0
+arc_room_axial_half_width_m = 4.0
+arc_room_angle_span_deg = 60.0
+arc_room_segment_count = 6
+target_gravity_g = 0.3
+interior_light_count_per_module = 4
+interior_light_color = Color(1, 0.909804, 0.768627, 1)
+interior_light_energy = 1.2
+interior_light_range_m = 12.0

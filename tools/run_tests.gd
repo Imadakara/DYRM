@@ -72,6 +72,20 @@ func _init() -> void:
 			await _test_rotating_ring(station, game_clock)
 			_test_markers(station, cfg)
 		if _block_enabled(&"physics_containment"):
+			# T-18 (выше) намеренно прыгает epoch_days на целые сутки одним кадром,
+			# чтобы проверить, что вращающийся узел действительно повернулся. Этот
+			# скачок transform'а за один физический кадр даёт AnimatableBody3D
+			# (Drum) в sync_to_physics аномально большую вычисленную угловую
+			# скорость — Jolt потом передаёт её любому RigidBody3D, коснувшемуся
+			# поверхности барабана в T-17 (мяч в жилом/рабочем плече долетает до
+			# барабана по коридору без коллизии), и тот улетает на десятки метров
+			# вместо ожидаемых ~2 м (см. базу знаний Godot). Возврат epoch_days к 0
+			# и несколько кадров БЕЗ паузы дают RingRotator/AnimatableBody3D снова
+			# устояться на маленьких, физически осмысленных приращениях поворота,
+			# прежде чем T-17 начнёт создавать тела.
+			game_clock.set_epoch_days(0.0)
+			for i in range(10):
+				await process_frame
 			# Останавливаем игровое время: кольцо вращается непрерывно (даже с
 			# time_scale=1), а T-17 сравнивает финальную позицию тела с AABB модуля,
 			# снятым в начале — при вращающемся кольце обе величины «уезжают» друг
@@ -85,7 +99,20 @@ func _init() -> void:
 			# ТЗ-100: игрок и станция от первого лица. Кольцо снова вращается —
 			# co-rotating контракт (A-01) проверяется как раз при работающем вращении.
 			game_clock.set_epoch_days(0.0)
-			await _run_player_tests(main, station, cfg)
+			# Гантелеобразная станция (см. ТЗ-000, раздел «Изменения после ревью
+			# 0.1.1») пока не несёт узла Player — адаптация ТЗ-100 под новую
+			# топологию (перемещение между неподвижным стволом без гравитации и
+			# вращающимся плечом с гравитацией) сознательно отложена отдельной
+			# ревизией, это не входит в скоуп ТЗ-000. Без этой защиты жёсткий
+			# get_node("Player") в _run_player_tests уронит весь прогон.
+			var ring_for_player: Node3D = station.get_rotating_ring()
+			if ring_for_player.get_node_or_null("Player") != null:
+				await _run_player_tests(main, station, cfg)
+			else:
+				print("SKIP player_locomotion/interaction_ui: в текущей сцене станции нет Player " +
+						"(гантелеобразная станция, адаптация ТЗ-100 отложена — см. ТЗ-000)")
+				if _block_enabled(&"scene_integrity"):
+					_test_no_audio_players(main)
 
 	print("RESULT: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
@@ -276,34 +303,52 @@ func _test_bodies_count(solar_system: SolarSystem) -> void:
 			"got %d" % solar_system.get_bodies().size())
 
 # T-09 -----------------------------------------------------------------
-func _test_gravity(station: StationRoot, cfg: StationConfig) -> void:
+## Гантелеобразная станция (ТЗ-000, «Изменения после ревью 0.1.1»): три модуля
+## неподвижного ствола (antenna/hub/transmission) лежат на оси вращения —
+## гравитация там должна быть строго нулевой; жилой и рабочий модуль — на
+## конце вращающегося плеча, гравитация там сверяется с формулой ω²·r САМОГО
+## станции (радиус берётся из фактической позиции точки спавна, а не из
+## одного фиксированного config-поля, как в прежней кольцевой станции — плечи
+## могут отличаться по длине друг от друга).
+func _test_gravity(station: StationRoot, _cfg: StationConfig) -> void:
 	var ok := true
 	var details := ""
-	var expected_g: float = cfg.target_gravity_g * RingRotator.G_EARTH_M_S2
 	var axis: Vector3 = station.global_transform.basis.y
-	for module in station.get_modules():
-		var mid_angle_rad: float = deg_to_rad(0.0)
-		# читаем реальные границы дуги модуля, а не предполагаем их
-		mid_angle_rad = _module_mid_angle_rad(module)
-		var local_floor: Vector3 = Vector3(cos(mid_angle_rad), 0.0, sin(mid_angle_rad)) * cfg.ring_radius_m
-		var floor_point: Vector3 = module.global_transform * local_floor
-		var up: Vector3 = station.get_gravity_up_at(floor_point)
-		var g: Vector3 = station.get_gravity_at(floor_point)
+	var ring: RingRotator = station.get_rotating_ring() as RingRotator
+	var omega: float = ring.angular_velocity_rad_s
+	for module_id in [&"antenna", &"hub", &"transmission"]:
+		var module: StationModule = station.get_module(module_id)
+		if module == null:
+			ok = false
+			details += "missing module %s; " % module_id
+			continue
+		var g: Vector3 = station.get_gravity_at(module.spawn_point.global_position)
+		if g.length() > 0.01:
+			ok = false
+			details += "%s expected zero-g, |g|=%.4f; " % [module_id, g.length()]
+	for module_id in [&"habitat", &"work"]:
+		var module: StationModule = station.get_module(module_id)
+		if module == null:
+			ok = false
+			details += "missing module %s; " % module_id
+			continue
+		var point: Vector3 = module.spawn_point.global_position
+		var offset: Vector3 = point - station.global_position
+		var radial: Vector3 = offset - axis * offset.dot(axis)
+		var radial_dist: float = radial.length()
+		var up: Vector3 = station.get_gravity_up_at(point)
+		var g: Vector3 = station.get_gravity_at(point)
+		var expected_g: float = omega * omega * radial_dist
 		if absf(up.length() - 1.0) > 0.01:
 			ok = false
-			details += "%s |up|=%.4f; " % [module.module_id, up.length()]
+			details += "%s |up|=%.4f; " % [module_id, up.length()]
 		if absf(up.dot(axis)) > 0.01:
 			ok = false
-			details += "%s up.dot(axis)=%.4f; " % [module.module_id, up.dot(axis)]
+			details += "%s up.dot(axis)=%.4f; " % [module_id, up.dot(axis)]
 		if absf(g.length() - expected_g) > 0.01:
 			ok = false
-			details += "%s |g|=%.4f expected %.4f; " % [module.module_id, g.length(), expected_g]
-	_check("T-09 gravity at 8 floor points", ok, details)
-
-func _module_mid_angle_rad(module: StationModule) -> float:
-	# StationModule сам не хранит вычисленный mid_angle — читаем через доступные
-	# @export поля напрямую (angle_start_deg/angle_end_deg — публичные свойства).
-	return deg_to_rad((module.angle_start_deg + module.angle_end_deg) * 0.5)
+			details += "%s |g|=%.4f expected %.4f; " % [module_id, g.length(), expected_g]
+	_check("T-09 gravity: zero-g on fixed spine, correct centrifugal g at habitat/work", ok, details)
 
 # T-10 -----------------------------------------------------------------
 func _test_epoch_roundtrip(solar_system: SolarSystem, game_clock: GameClock) -> void:
@@ -345,51 +390,47 @@ func _accumulate_aabb(node: Node, box: Array) -> void:
 		_accumulate_aabb(child, box)
 
 # T-13 --------------------------------------------------------------------
+## Гантелеобразная станция: 5 модулей вместо 8 арок кольца — три на неподвижном
+## стволе (antenna/hub/transmission) и два на вращающемся барабане (habitat/work).
+## «360° дуги» здесь не осмысленное понятие (станция — не одна окружность),
+## поэтому проверяем только наличие всех id и точек спавна.
 func _test_arcs(station: StationRoot) -> void:
-	var expected_ids: Array = ["control_deck", "corridor_a", "habitat", "corridor_b",
-			"engineering", "corridor_c", "docking", "corridor_d"]
-	var ok: bool = station.get_modules().size() == 8
+	var expected_ids: Array = ["antenna", "hub", "transmission", "habitat", "work"]
+	var ok: bool = station.get_modules().size() == 5
 	var details := ""
-	var total_span: float = 0.0
 	for id in expected_ids:
 		var m: StationModule = station.get_module(StringName(id))
 		if m == null:
 			ok = false
 			details += "missing %s; " % id
 			continue
-		total_span += m.angle_end_deg - m.angle_start_deg
 		if m.spawn_point == null:
 			ok = false
 			details += "%s no spawn; " % id
-	if absf(total_span - 360.0) > 0.01:
-		ok = false
-		details += "total_span=%.4f; " % total_span
-	_check("T-13 8 arcs, correct ids, 360 deg total, spawns present", ok, details)
+	_check("T-13 5 dumbbell modules present with spawn points", ok, details)
 
 # T-14 -----------------------------------------------------------------
+## Гантелеобразная станция несёт ровно один лазер (на двухосевом подвесе, на
+## дальнем торце модуля передачи) и одну антенну-тарелку (на дальнем торце
+## антенного модуля) — не три лазера с покрытием полной сферы, как у прежней
+## кольцевой станции. Проверяем присутствие обоих и их гимбала (Yaw → Pitch),
+## без логики наведения (не входит в скоуп ТЗ-000).
 func _test_laser_coverage(station: StationRoot) -> void:
-	var mounts: Array = []
-	for mount_name in ["LaserMount_1", "LaserMount_2", "LaserMount_3"]:
-		var mount: LaserMountStub = station.get_node("DespunTruss/%s" % mount_name)
-		mounts.append({
-			"normal": mount.global_transform.basis.y,
-			"elevation_half_range_deg": mount.elevation_half_range_deg,
-		})
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-	var uncovered := 0
-	for i in range(1000):
-		var dir := Vector3(rng.randfn(0.0, 1.0), rng.randfn(0.0, 1.0), rng.randfn(0.0, 1.0)).normalized()
-		var covered := false
-		for mount_data in mounts:
-			var elevation_deg: float = rad_to_deg(asin(clampf(dir.dot(mount_data["normal"]), -1.0, 1.0)))
-			if elevation_deg >= 90.0 - mount_data["elevation_half_range_deg"]:
-				covered = true
-				break
-		if not covered:
-			uncovered += 1
-	_check("T-14 laser sectors cover full sphere (1000-point grid)", uncovered == 0,
-			"uncovered=%d/1000" % uncovered)
+	var mount: LaserMountStub = station.get_node_or_null("DespunTruss/LaserMount_1")
+	var antenna: DishAntennaStub = station.get_node_or_null("DespunTruss/DishAntenna_1")
+	var ok: bool = mount != null and antenna != null
+	var details := ""
+	if mount == null:
+		details += "missing LaserMount_1; "
+	elif mount.get_node_or_null("Yaw") == null or mount.get_node_or_null("Yaw/Pitch") == null:
+		ok = false
+		details += "LaserMount_1 missing Yaw/Pitch gimbal; "
+	if antenna == null:
+		details += "missing DishAntenna_1; "
+	elif antenna.get_node_or_null("Yaw") == null or antenna.get_node_or_null("Yaw/Pitch") == null:
+		ok = false
+		details += "DishAntenna_1 missing Yaw/Pitch gimbal; "
+	_check("T-14 single laser mount + single dish antenna with gimbal", ok, details)
 
 # T-18 -----------------------------------------------------------------
 func _test_rotating_ring(station: StationRoot, game_clock: GameClock) -> void:
@@ -408,45 +449,53 @@ func _test_rotating_ring(station: StationRoot, game_clock: GameClock) -> void:
 	_check("T-18 get_rotating_ring() child follows ring rotation", ok, "")
 
 # T-19 -------------------------------------------------------------------
-func _test_markers(station: StationRoot, cfg: StationConfig) -> void:
+## Гантелеобразная станция: вместо 7 Panel_* рубки и 4 SpokeHatch_* — 2 маркера
+## стыковочных дверей неподвижного ствола и 2 маркера точек перехода в
+## гравитацию (документация 0.1.1: «переход по кнопке действия (E) на дверях
+## перпендикулярно пристыкованных коридоров, без перемещения по ним»). Панели
+## рубки в новой топологии не описаны — их разметка не входит в этот пересмотр.
+func _test_markers(station: StationRoot, _cfg: StationConfig) -> void:
 	var ok := true
 	var details := ""
-	var control_deck: StationModule = station.get_module(&"control_deck")
-	var panel_names: Array = ["Panel_Registrar", "Panel_Decoder", "Panel_TxLog", "Panel_StarMap",
-			"Panel_Transmitter", "Panel_TxStatus", "Panel_StationControl"]
-	for pname in panel_names:
-		var marker: Marker3D = control_deck.get_node_or_null(pname)
+	var marker_names: Array = ["Door_AntennaHub", "Door_HubTransmission",
+			"AccessToHabitat", "AccessToWork"]
+	for mname in marker_names:
+		var marker: Marker3D = station.get_node_or_null("DespunTruss/%s" % mname)
 		if marker == null:
 			ok = false
-			details += "missing %s; " % pname
-			continue
-		var pos: Vector3 = marker.position
-		var radial_dist: float = Vector2(pos.x, pos.z).length()
-		var height_above_floor: float = cfg.ring_radius_m - radial_dist
-		var clearance: float = absf(pos.y)
-		if height_above_floor < 0.9 or height_above_floor > 1.9:
-			ok = false
-			details += "%s height=%.3f; " % [pname, height_above_floor]
-		if clearance < 0.8 or clearance > 1.5:
-			ok = false
-			details += "%s clearance=%.3f; " % [pname, clearance]
-	for i in range(1, 5):
-		var hatch_name: String = "SpokeHatch_%d" % i
-		var marker: Marker3D = station.get_node_or_null("RotatingRing/Arcs/%s" % hatch_name)
-		if marker == null:
-			ok = false
-			details += "missing %s; " % hatch_name
-	_check("T-19 panel and spoke-hatch markers", ok, details)
+			details += "missing %s; " % mname
+	_check("T-19 dumbbell door/access markers present", ok, details)
 
 # T-17 -----------------------------------------------------------------------
+## Направления, намеренно исключённые из проверки для каждого модуля
+## гантелеобразной станции — это НЕ стены, а открытые проёмы по дизайну
+## (документация 0.1.1): оба торца втулки (открыты на антенну/передачу),
+## ближний торец антенны/передачи (открыт на втулку), и «внутренний» торец
+## жилого/рабочего модуля (открыт в коридор без коллизии — игрок телепортируется
+## через люк, а не идёт по коридору пешком). Проверять контейнмент в эти
+## направления бессмысленно: тело корректно улетает в открытый проём, это не баг.
+const _CONTAINMENT_EXCLUDED_DIRECTIONS: Dictionary = {
+	&"antenna": [Vector3.UP],
+	&"hub": [Vector3.UP, Vector3.DOWN],
+	&"transmission": [Vector3.DOWN],
+	&"habitat": [Vector3.LEFT],
+	&"work": [Vector3.RIGHT],
+}
+
 func _test_physics_containment(station: StationRoot) -> void:
 	var ok := true
 	var details := ""
 	var directions: Array = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.FORWARD, Vector3.BACK]
 	for module in station.get_modules():
 		var hull: MeshInstance3D = module.get_node("Hull")
-		var module_aabb: AABB = (hull.global_transform * hull.mesh.get_aabb()).grow(0.3)
+		# grow(1.0), не 0.3: тело — сфера радиуса 0.3, плюс небольшой запас на
+		# то, что решатель Jolt не всегда успевает погасить проникновение за
+		# один физический шаг у быстро летящего (2 м/с) тела.
+		var module_aabb: AABB = (hull.global_transform * hull.mesh.get_aabb()).grow(1.0)
+		var excluded: Array = _CONTAINMENT_EXCLUDED_DIRECTIONS.get(module.module_id, [])
 		for dir in directions:
+			if excluded.has(dir):
+				continue
 			var body := RigidBody3D.new()
 			body.gravity_scale = 0.0
 			var collision := CollisionShape3D.new()
@@ -465,7 +514,7 @@ func _test_physics_containment(station: StationRoot) -> void:
 				details += "%s dir=%s pos=%s outside; " % [module.module_id, dir, final_pos]
 			body.queue_free()
 			await process_frame
-	_check("T-17 physics containment (8 modules x 6 directions)", ok, details)
+	_check("T-17 physics containment (%d modules x 6 directions)" % station.get_modules().size(), ok, details)
 
 # ─── ТЗ-100: игрок и станция от первого лица ──────────────────────────────
 

@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/cylindrical_station_module.gd" id="1"]
+[ext_resource type="Resource" path="res://materials/mat_interior.tres" id="2"]
+
+[node name="AntennaModule" type="Node3D"]
+script = ExtResource("1")
+hull_material = ExtResource("2")
+radius_m = 3.0
+length_m = 8.0
+cap_far_end = true
+far_cap_is_floor = false
+angle_start_deg = 40.0
+angle_end_deg = 50.0
+
+[node name="Spawn" type="Marker3D" parent="."]
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+
+[node name="Collision" type="AnimatableBody3D" parent="."]

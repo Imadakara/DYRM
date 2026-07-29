@@ -1,0 +1,118 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://src/environment/station/station_root.gd" id="1"]
+[ext_resource type="Script" path="res://src/environment/station/ring_rotator.gd" id="2"]
+[ext_resource type="Script" path="res://src/environment/station/station_dumbbell_assembly.gd" id="3"]
+[ext_resource type="Resource" path="res://resources/station_default.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/station_dumbbell_rotator.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/dumbbell_station_default.tres" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/antenna_module.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/hub_shell_module.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/transmission_module.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/habitat_module.tscn" id="10"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/work_module.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/corridor.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/drum.tscn" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/station/equipment/laser_mount.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/station/equipment/dish_antenna.tscn" id="15"]
+
+[node name="StationDumbbell" type="Node3D"]
+script = ExtResource("1")
+config = ExtResource("4")
+solar_system_path = NodePath("../SolarSystem")
+game_clock_path = NodePath("../GameClock")
+
+[node name="AimingReference" type="Node3D" parent="."]
+
+[node name="DespunTruss" type="Node3D" parent="."]
+
+[node name="AntennaModule" parent="DespunTruss" instance=ExtResource("7")]
+dumbbell_config = ExtResource("6")
+module_id = &"antenna"
+display_name = "Антенный модуль"
+
+[node name="HubShellModule" parent="DespunTruss" instance=ExtResource("8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3, 0)
+dumbbell_config = ExtResource("6")
+module_id = &"hub"
+display_name = "Модуль-втулка"
+
+[node name="TransmissionModule" parent="DespunTruss" instance=ExtResource("9")]
+dumbbell_config = ExtResource("6")
+module_id = &"transmission"
+display_name = "Модуль передачи"
+
+[node name="DishAntenna_1" parent="DespunTruss" instance=ExtResource("15")]
+transform = Transform3D(1, 0, 0, 0, -1, 0, 0, 0, -1, 0, -11, 0)
+antenna_id = &"RX-1"
+elevation_half_range_deg = 80.0
+
+[node name="LaserMount_1" parent="DespunTruss" instance=ExtResource("14")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11, 0)
+mount_id = &"LT-1"
+azimuth_half_range_deg = 180.0
+elevation_half_range_deg = 90.0
+
+[node name="Door_AntennaHub" type="Marker3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3, 0)
+
+[node name="Door_HubTransmission" type="Marker3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+
+[node name="AccessToHabitat" type="Marker3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="AccessToWork" type="Marker3D" parent="DespunTruss"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="ExteriorLights" type="Node3D" parent="DespunTruss"]
+
+[node name="Light_Hub" type="OmniLight3D" parent="DespunTruss/ExteriorLights"]
+light_color = Color(0.85, 0.92, 1, 1)
+light_energy = 3.0
+omni_range = 60.0
+
+[node name="Light_AntennaEnd" type="OmniLight3D" parent="DespunTruss/ExteriorLights"]
+position = Vector3(0, -11, 0)
+light_color = Color(0.85, 0.92, 1, 1)
+light_energy = 2.0
+omni_range = 40.0
+
+[node name="Light_TransmissionEnd" type="OmniLight3D" parent="DespunTruss/ExteriorLights"]
+position = Vector3(0, 11, 0)
+light_color = Color(0.85, 0.92, 1, 1)
+light_energy = 2.0
+omni_range = 40.0
+
+[node name="RotatingRing" type="Node3D" parent="."]
+script = ExtResource("2")
+config = ExtResource("5")
+game_clock_path = NodePath("../../GameClock")
+
+[node name="Drum" parent="RotatingRing" instance=ExtResource("13")]
+dumbbell_config = ExtResource("6")
+
+[node name="HabitatCorridor" parent="RotatingRing" instance=ExtResource("12")]
+dumbbell_config = ExtResource("6")
+
+[node name="HabitatModule" parent="RotatingRing" instance=ExtResource("10")]
+module_id = &"habitat"
+display_name = "Жилой модуль"
+
+[node name="WorkCorridor" parent="RotatingRing" instance=ExtResource("12")]
+dumbbell_config = ExtResource("6")
+
+[node name="WorkModule" parent="RotatingRing" instance=ExtResource("11")]
+module_id = &"work"
+display_name = "Рабочий модуль"
+
+[node name="Assembly" type="Node3D" parent="."]
+script = ExtResource("3")
+antenna_path = NodePath("../DespunTruss/AntennaModule")
+hub_path = NodePath("../DespunTruss/HubShellModule")
+transmission_path = NodePath("../DespunTruss/TransmissionModule")
+drum_path = NodePath("../RotatingRing/Drum")
+habitat_corridor_path = NodePath("../RotatingRing/HabitatCorridor")
+habitat_module_path = NodePath("../RotatingRing/HabitatModule")
+work_corridor_path = NodePath("../RotatingRing/WorkCorridor")
+work_module_path = NodePath("../RotatingRing/WorkModule")

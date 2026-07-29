@@ -50,7 +50,13 @@ func _ready() -> void:
 	_orbit_period_s = 2.0 * PI * sqrt(pow(config.orbit_radius_km, 3.0) / config.neptune_mu_km3_s2)
 	_modules.clear()
 	_modules_by_id.clear()
-	_collect_modules(_rotating_ring)
+	# Сканируем от self, а не только _rotating_ring: гантелеобразная станция
+	# (см. отчёт по конфигурации 0.1.1) держит часть модулей (антенна, втулка,
+	# передача) на неподвижном стволе ВНЕ вращающегося узла — им тоже нужна
+	# регистрация в get_modules()/get_spawn_point(). Для старой кольцевой
+	# станции ничего не меняется: там все StationModule и так лежат внутри
+	# _rotating_ring, других не появляется.
+	_collect_modules(self)
 	_build_hub_and_spokes()
 	_update_orbit(0.0)
 
