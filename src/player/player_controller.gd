@@ -36,6 +36,18 @@ const REST_VELOCITY_EPS_M_S: float = 0.08
 ## REST_VELOCITY_EPS_M_S false), либо остаётся без опоры на порядок дольше
 ## этого запаса — отличить легко.
 const MAX_FLICKER_AIRBORNE_FRAMES: int = 6
+## Множитель к config.run_speed_m_s, задающий потолок для local_velocity сразу
+## после move_and_slide() (см. применение ниже). move_and_slide() иногда
+## выражает однократную коррекцию глубокого проникновения коллизии (например,
+## столкновение с закрытой дверью — тонкая, 0.1 м, створка против капсулы
+## радиусом 0.35 м) как «скорость» в десятки м/с, а не как разовую подвижку
+## позиции — и без ограничения этот артефакт переносится в local_velocity как
+## настоящий импульс и разгоняет игрока в обратном направлении на секунду и
+## больше (см. отчёт по ТЗ-100). Множитель 2 даёт запас над любой легитимной
+## комбинированной скоростью (бег config.run_speed_m_s + вертикальная
+## составляющая прыжка/падения, векторная сумма — не более ~4,1 м/с), но
+## далеко отсекает наблюдавшиеся выбросы (13-26 м/с при беге 2,0-3,6 м/с).
+const MAX_VELOCITY_SPEED_MULTIPLIER: float = 2.0
 
 signal module_changed(module_id: StringName)
 signal footstep(surface_id: StringName, speed: float)
@@ -189,6 +201,9 @@ func _physics_process(delta: float) -> void:
 	velocity = ring_basis * local_velocity - get_platform_velocity()
 	move_and_slide()
 	local_velocity = ring_basis.inverse() * (velocity - get_platform_velocity())
+	var max_sane_speed_m_s: float = config.run_speed_m_s * MAX_VELOCITY_SPEED_MULTIPLIER
+	if local_velocity.length() > max_sane_speed_m_s:
+		local_velocity = local_velocity.normalized() * max_sane_speed_m_s
 	if was_resting:
 		# Откатываем ТОЛЬКО тангенциальную (не вдоль up) составляющую сдвига —
 		# именно она и есть паразитный дрейф от разрешения контакта с

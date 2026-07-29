@@ -175,13 +175,51 @@ rather than forcing fit.
 
 ## Tests
 
-ТЗ-000 defines the autotest entry point (not yet present in the repo):
+ТЗ-000 defines the autotest entry point, `tools/run_tests.gd`:
 
 ```bash
 godot --headless --path . --script res://tools/run_tests.gd
 ```
 
-Expected output: one line per test, ending in `RESULT: <N> passed, 0 failed`, exit code 0.
+Expected output: one line per test, ending in `RESULT: <N> passed, 0 failed`, exit code 0. Run this
+full, unfiltered form as the final regression check before considering a task done.
+
+### Autotests: blocks and point runs
+
+The 40 tests are grouped into 8 semantic blocks, defined by `BLOCK_ORDER` at the top of
+`tools/run_tests.gd` (this is the single source of truth for the mapping below — re-read it if the
+suite has grown since this was written, don't trust this list blindly):
+
+| Block | Tests | Covers |
+|---|---|---|
+| `space_scale` | T-01, T-02, T-03, T-11 | `SpaceScale` distance compression/render radius math — no scene |
+| `orbital_mechanics` | T-04, T-05, T-06, T-07, T-08, T-10, T-15 | Planet/Triton/station orbits, epoch round-trip, ring rotation period |
+| `starfield` | T-16 | `StarfieldBuilder` determinism — no scene |
+| `station_structure` | T-09, T-12, T-13, T-14, T-18, T-19 | Station geometry: gravity, AABB, arcs, laser coverage, rotating ring, markers |
+| `physics_containment` | T-17 | RigidBody containment inside each module (heaviest single test) |
+| `player_locomotion` | T-20 – T-32 | `PlayerController`: orientation, walk/run/jump/step, teleport, determinism |
+| `interaction_ui` | T-33 – T-39 | Work panels, viewport mapping, doors/hatches, input capture |
+| `scene_integrity` | T-40 | Whole-tree invariants (e.g. no stray `AudioStreamPlayer`) |
+
+During iterative work on one subsystem, **run only the affected block plus its immediate neighbors
+in `BLOCK_ORDER`** (not the full 40), via a `--blocks=` filter after `--`:
+
+```bash
+godot --headless --path . --script res://tools/run_tests.gd -- --blocks=player_locomotion,station_structure
+```
+
+`--blocks=` accepts a comma-separated list; an unknown name prints a `WARN` instead of silently
+matching nothing. Omitting it (or passing none) runs everything, unchanged from before this option
+existed. Skipping unrequested blocks also skips their setup cost, not just their assertions — e.g.
+`--blocks=space_scale` never loads `main.tscn` at all, and any run that excludes both
+`player_locomotion` and `interaction_ui` and `scene_integrity` skips the ТЗ-100 player-test harness
+entirely. `physics_containment` (T-17) and the `player_locomotion` block's stand-still test (T-25,
+300 simulated seconds) are the two most expensive parts of a full run — leave them out of point runs
+unless they're the block actually being touched.
+
+Point runs are for iteration, not for closing out a task: **always finish with one full,
+unfiltered run** (see above) before reporting a fix as verified — a point run only proves the
+touched block and its declared neighbors are clean, not the whole suite.
 
 **All testing during development beyond this headless numeric run goes through two skills split
 by scope** — don't improvise MCP verification steps ad hoc:

@@ -1,59 +1,110 @@
-## Автотесты ТЗ-000. Запуск:
+## Автотесты ТЗ-000. Полный прогон (регрессия перед сдачей задачи):
 ##   godot --headless --path . --script res://tools/run_tests.gd
-## Одна строка на тест (PASS/FAIL), финальная строка RESULT: N passed, M failed.
-## Код возврата 0 только если все тесты прошли.
+## Точечный прогон одного/нескольких смысловых блоков (во время работы над
+## конкретной подсистемой — см. BLOCK_ORDER ниже и CLAUDE.md, раздел
+## «Автотесты: блоки и точечный запуск»):
+##   godot --headless --path . --script res://tools/run_tests.gd -- --blocks=player_locomotion,station_structure
+## Одна строка на тест (PASS/FAIL), финальная строка RESULT: N passed, M failed
+## (только по фактически запущенным тестам при фильтре по блокам). Код
+## возврата 0 только если все ЗАПУЩЕННЫЕ тесты прошли.
 extends SceneTree
+
+## Порядок = порядок исполнения внутри полного прогона (часть тестов опирается
+## на состояние, оставленное предыдущим блоком — например player_locomotion
+## оставляет epoch_days и позицию игрока, от которых стартует interaction_ui;
+## сам список блоков от этого не зависит и при фильтре выполняется в этом же
+## относительном порядке). Он же задаёт «соседей» для точечного запуска —
+## сосед блока X это блок слева/справа от X в этом списке.
+const BLOCK_ORDER: Array[StringName] = [
+	&"space_scale", &"orbital_mechanics", &"starfield", &"station_structure",
+	&"physics_containment", &"player_locomotion", &"interaction_ui", &"scene_integrity",
+]
 
 var _passed: int = 0
 var _failed: int = 0
+var _requested_blocks: Array[StringName] = []
 
 func _init() -> void:
-	_test_compress_distance_monotonic()
-	_test_compress_distance_reference()
-	_test_render_radius_reference()
-	_test_planet_positions()
-	_test_triton_orbit()
-	_test_station_orbit_period()
-	_test_ring_rotation_period()
-	_test_direction_preservation()
-	_test_retrograde_rotation()
-	_test_starfield()
+	_requested_blocks = _parse_requested_blocks()
+	for requested in _requested_blocks:
+		if not BLOCK_ORDER.has(requested):
+			print("WARN unknown block '%s' — see BLOCK_ORDER in tools/run_tests.gd for valid names" % requested)
 
-	var main_scene: PackedScene = load("res://scenes/main.tscn")
-	var main: Node = main_scene.instantiate()
-	get_root().add_child(main)
-	for i in range(5):
-		await process_frame
+	if _block_enabled(&"space_scale"):
+		_test_compress_distance_monotonic()
+		_test_compress_distance_reference()
+		_test_render_radius_reference()
+		_test_direction_preservation()
+	if _block_enabled(&"starfield"):
+		_test_starfield()
 
-	var solar_system: SolarSystem = main.get_node("SolarSystem")
-	var station: StationRoot = main.get_node("Station")
-	var game_clock: GameClock = main.get_node("GameClock")
-	var cfg: StationConfig = load("res://resources/station_default.tres")
+	# Сцену (main.tscn, station, солнечная система) грузим, только если её
+	# требует хотя бы один из запрошенных блоков — при фильтре вида
+	# --blocks=space_scale прогон вообще не трогает сцену станции.
+	var needs_scene: bool = _block_enabled(&"orbital_mechanics") or _block_enabled(&"station_structure") \
+			or _block_enabled(&"physics_containment") or _block_enabled(&"player_locomotion") \
+			or _block_enabled(&"interaction_ui") or _block_enabled(&"scene_integrity")
+	if needs_scene:
+		var main_scene: PackedScene = load("res://scenes/main.tscn")
+		var main: Node = main_scene.instantiate()
+		get_root().add_child(main)
+		for i in range(5):
+			await process_frame
 
-	_test_bodies_count(solar_system)
-	_test_gravity(station, cfg)
-	await _test_epoch_roundtrip(solar_system, game_clock)
-	_test_station_aabb(station)
-	_test_arcs(station)
-	_test_laser_coverage(station)
-	await _test_rotating_ring(station, game_clock)
-	_test_markers(station, cfg)
-	# Останавливаем игровое время: кольцо вращается непрерывно (даже с
-	# time_scale=1), а T-17 сравнивает финальную позицию тела с AABB модуля,
-	# снятым в начале — при вращающемся кольце обе величины «уезжают» друг
-	# от друга за секунды симуляции импульса. Сама физика (Jolt) не зависит
-	# от GameClock и продолжает считаться нормально.
-	game_clock.paused = true
-	await _test_physics_containment(station)
+		var solar_system: SolarSystem = main.get_node("SolarSystem")
+		var station: StationRoot = main.get_node("Station")
+		var game_clock: GameClock = main.get_node("GameClock")
+		var cfg: StationConfig = load("res://resources/station_default.tres")
 
-	# ТЗ-100: игрок и станция от первого лица. Кольцо снова вращается —
-	# co-rotating контракт (A-01) проверяется как раз при работающем вращении.
-	game_clock.paused = false
-	game_clock.set_epoch_days(0.0)
-	await _run_player_tests(main, station, cfg)
+		if _block_enabled(&"orbital_mechanics"):
+			_test_planet_positions()
+			_test_triton_orbit()
+			_test_station_orbit_period()
+			_test_ring_rotation_period()
+			_test_retrograde_rotation()
+			_test_bodies_count(solar_system)
+			await _test_epoch_roundtrip(solar_system, game_clock)
+		if _block_enabled(&"station_structure"):
+			_test_gravity(station, cfg)
+			_test_station_aabb(station)
+			_test_arcs(station)
+			_test_laser_coverage(station)
+			await _test_rotating_ring(station, game_clock)
+			_test_markers(station, cfg)
+		if _block_enabled(&"physics_containment"):
+			# Останавливаем игровое время: кольцо вращается непрерывно (даже с
+			# time_scale=1), а T-17 сравнивает финальную позицию тела с AABB модуля,
+			# снятым в начале — при вращающемся кольце обе величины «уезжают» друг
+			# от друга за секунды симуляции импульса. Сама физика (Jolt) не зависит
+			# от GameClock и продолжает считаться нормально.
+			game_clock.paused = true
+			await _test_physics_containment(station)
+			game_clock.paused = false
+
+		if _block_enabled(&"player_locomotion") or _block_enabled(&"interaction_ui") or _block_enabled(&"scene_integrity"):
+			# ТЗ-100: игрок и станция от первого лица. Кольцо снова вращается —
+			# co-rotating контракт (A-01) проверяется как раз при работающем вращении.
+			game_clock.set_epoch_days(0.0)
+			await _run_player_tests(main, station, cfg)
 
 	print("RESULT: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
+
+## --blocks=name1,name2 после "--" в командной строке (см. заголовок файла).
+## Аргумент отсутствует или пуст — запрошены ВСЕ блоки (полный прогон,
+## поведение по умолчанию не меняется).
+func _parse_requested_blocks() -> Array[StringName]:
+	var result: Array[StringName] = []
+	var prefix := "--blocks="
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with(prefix):
+			for block_name in arg.substr(prefix.length()).split(","):
+				if not block_name.is_empty():
+					result.append(StringName(block_name))
+	return result
+
+func _block_enabled(block_name: StringName) -> bool:
+	return _requested_blocks.is_empty() or _requested_blocks.has(block_name)
 
 func _check(test_name: String, condition: bool, details: String = "") -> void:
 	if condition:
@@ -424,26 +475,29 @@ func _run_player_tests(main: Node, station: StationRoot, cfg: StationConfig) -> 
 	var probe: InteractionProbe = player.get_node("CameraPivot/PlayerCamera/InteractionProbe")
 	var panel_cfg: PanelConfig = load("res://resources/panel_standard.tres")
 
-	await _test_player_up_at_arcs(player, station)
-	_test_local_up_formula(station)
-	_test_degenerate_reorientation(player)
-	await _test_walk_full_circle(player, ring)
-	await _test_stand_still(player)
-	await _test_accel(player)
-	await _test_jump(player)
-	await _test_step_threshold(player, ring)
-	await _test_teleport_all_modules(player)
-	await _test_camera_roll(player, station)
-	await _test_determinism(player)
-	await _test_local_velocity_stable(player)
-	_test_surface_to_viewport(station)
-	_test_control_deck_panels(station)
-	_test_panel_dimensions(station, cfg)
-	await _test_interaction_distance(player, probe)
-	_test_door_and_hatch(ring, player)
-	await _test_input_capture(player, probe, ring)
-	_test_diagnostic_element_sizes(ring, panel_cfg)
-	_test_no_audio_players(main)
+	if _block_enabled(&"player_locomotion"):
+		await _test_player_up_at_arcs(player, station)
+		_test_local_up_formula(station)
+		_test_degenerate_reorientation(player)
+		await _test_walk_full_circle(player)
+		await _test_stand_still(player)
+		await _test_accel(player)
+		await _test_jump(player)
+		await _test_step_threshold(player, ring)
+		await _test_teleport_all_modules(player)
+		await _test_camera_roll(player, station)
+		await _test_determinism(player)
+		await _test_local_velocity_stable(player)
+	if _block_enabled(&"interaction_ui"):
+		_test_surface_to_viewport(station)
+		_test_control_deck_panels(station)
+		_test_panel_dimensions(station, cfg)
+		await _test_interaction_distance(player, probe, ring)
+		await _test_door_and_hatch(ring, player)
+		await _test_input_capture(player, probe, ring)
+		_test_diagnostic_element_sizes(ring, panel_cfg)
+	if _block_enabled(&"scene_integrity"):
+		_test_no_audio_players(main)
 
 # T-20 -----------------------------------------------------------------
 func _test_player_up_at_arcs(player: PlayerController, station: StationRoot) -> void:
@@ -515,14 +569,7 @@ func _test_degenerate_reorientation(player: PlayerController) -> void:
 	_check("T-23 degenerate reorientation (forward_prev || up) stays valid", ok, "basis=%s" % [b])
 
 # T-22, T-24 -------------------------------------------------------------
-func _test_walk_full_circle(player: PlayerController, ring: Node3D) -> void:
-	# Двери на всех 8 стыков арок заперты по умолчанию (FR-35) — обход всего
-	# кольца физически требует их открыть, иначе тест проверяет не локомоцию,
-	# а упор игрока в закрытую дверь.
-	for i in range(8):
-		var door: Door = ring.get_node("Doors/Door_%d" % i)
-		door.open()
-
+func _test_walk_full_circle(player: PlayerController) -> void:
 	player.teleport_to_module(&"control_deck")
 	for i in range(60):
 		await physics_frame
@@ -892,11 +939,24 @@ func _test_panel_dimensions(station: StationRoot, cfg: StationConfig) -> void:
 	_check("T-35 panel dims 0.6x0.45m / 1024x768px, mount height 0.9-1.9m", ok, details)
 
 # T-36 -----------------------------------------------------------------
-func _test_interaction_distance(player: PlayerController, probe: InteractionProbe) -> void:
+# Двери убраны из штатной сцены станции (стык арок геометрически ими не
+# перекрывался — известное отклонение, см. TC-ТЗ100-R5 в каталоге
+# dyrm-tz/tz-100-test-cases.md), поэтому контракт «проба находит Interactable
+# в пределах луча и получает подсказку» проверяется на одноразовой фикстуре
+# прямо по курсу игрока — тот же приём, что и синтетическая ступенька в T-28,
+# а не на объекте из живой сцены.
+func _test_interaction_distance(player: PlayerController, probe: InteractionProbe, ring: Node3D) -> void:
 	player.teleport_to_module(&"control_deck")
 	for i in range(60):
 		await physics_frame
 	var far_target_found: bool = probe.get_target() != null
+
+	var door: Door = load("res://scenes/interaction/door.tscn").instantiate()
+	var forward: Vector3 = -player.transform.basis.z
+	door.transform = Transform3D(player.transform.basis, player.position + forward * 5.0)
+	ring.add_child(door)
+	for i in range(10):
+		await physics_frame
 
 	player.set_move_input(Vector2(0.0, 1.0))
 	var found_in_range := false
@@ -911,18 +971,28 @@ func _test_interaction_distance(player: PlayerController, probe: InteractionProb
 	player.set_move_input(Vector2.ZERO)
 	for i in range(15):
 		await physics_frame
+	door.queue_free()
+	for i in range(10):
+		await physics_frame
 	var ok: bool = (not far_target_found) and found_in_range and found_prompt_ok
 	_check("T-36 interaction: target found within 2m, absent right after spawn", ok,
 			"far_target_found=%s found_in_range=%s prompt_ok=%s" % [far_target_found, found_in_range, found_prompt_ok])
 
 # T-37 -----------------------------------------------------------------
+# Дверь-фикстура: аналогично T-36, а не объект из сцены (двери убраны из
+# station.tscn — см. комментарий над T-36).
 func _test_door_and_hatch(ring: Node3D, player: PlayerController) -> void:
-	var door: Door = ring.get_node("Doors/Door_0")
+	var door: Door = load("res://scenes/interaction/door.tscn").instantiate()
+	door.transform = Transform3D(player.transform.basis, player.position + (-player.transform.basis.z) * 5.0)
+	ring.add_child(door)
+	for i in range(10):
+		await physics_frame
 	door.close()
 	door.interact(player)
 	var opened_ok: bool = door.is_open() == true
 	door.interact(player)
 	var closed_ok: bool = door.is_open() == false
+	door.queue_free()
 
 	var hatch: SpokeHatch = ring.get_node("Arcs/SpokeHatch_1/Hatch")
 	var activated_count: int = 0

@@ -154,32 +154,6 @@ transform = Transform3D(0.7071068, 0, 0.7071068, -0.7071068, 0, 0.7071068, 0, -1
 [node name="Player" parent="RotatingRing" instance=ExtResource("13")]
 station_path = NodePath("../..")
 
-[node name="Doors" type="Node3D" parent="RotatingRing"]
-
-[node name="Door_0" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 60, 0, 0)
-
-[node name="Door_1" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, -0.7071068, 0, -0.7071068, -0.7071068, 0, 0.7071068, 42.4264, 0, 42.4264)
-
-[node name="Door_2" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, 0, 0, -1, -1, 0, 0, 0, 0, 60)
-
-[node name="Door_3" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, 0.7071068, 0, -0.7071068, -0.7071068, 0, -0.7071068, -42.4264, 0, 42.4264)
-
-[node name="Door_4" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, 1, 0, 0, 0, 0, -1, -60, 0, 0)
-
-[node name="Door_5" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, 0.7071068, 0, 0.7071068, 0.7071068, 0, -0.7071068, -42.4264, 0, -42.4264)
-
-[node name="Door_6" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, -60)
-
-[node name="Door_7" parent="RotatingRing/Doors" instance=ExtResource("14")]
-transform = Transform3D(0, 1, 0, -0.7071068, 0, 0.7071068, 0.7071068, 0, 0.7071068, 42.4264, 0, -42.4264)
-
 [node name="DespunTruss" type="Node3D" parent="."]
 
 [node name="Hub" type="StaticBody3D" parent="DespunTruss"]
