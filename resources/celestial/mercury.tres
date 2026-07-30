@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://f2gijwm16bh4"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Mercury"]
 script = ExtResource("2")
@@ -17,13 +17,9 @@ period_days = 87.969
 script = ExtResource("1")
 display_name = "Меркурий"
 body_id = &"mercury"
-body_type = 1
-parent_body = &""
 radius_km = 2439.7
 orbit = SubResource("Orbit_Mercury")
 rotation_period_days = 58.646
 axial_tilt_deg = 0.034
 albedo = 0.142
 base_color = Color(0.54902, 0.52549, 0.501961, 1)
-emissive = false
-brightness = 1.0

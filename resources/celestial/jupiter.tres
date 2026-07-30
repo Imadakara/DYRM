@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://dlnuf7ja61wd5"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Jupiter"]
 script = ExtResource("2")
@@ -17,13 +17,9 @@ period_days = 4332.589
 script = ExtResource("1")
 display_name = "Юпитер"
 body_id = &"jupiter"
-body_type = 1
-parent_body = &""
 radius_km = 69911.0
 orbit = SubResource("Orbit_Jupiter")
 rotation_period_days = 0.41354
 axial_tilt_deg = 3.13
 albedo = 0.503
 base_color = Color(0.788235, 0.658824, 0.486275, 1)
-emissive = false
-brightness = 1.0

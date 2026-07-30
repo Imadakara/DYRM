@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://d4f7trq7na00u"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Neptune"]
 script = ExtResource("2")
@@ -17,13 +17,9 @@ period_days = 60189.0
 script = ExtResource("1")
 display_name = "Нептун"
 body_id = &"neptune"
-body_type = 1
-parent_body = &""
 radius_km = 24622.0
 orbit = SubResource("Orbit_Neptune")
 rotation_period_days = 0.67125
 axial_tilt_deg = 28.32
 albedo = 0.29
 base_color = Color(0.231373, 0.384314, 0.768627, 1)
-emissive = false
-brightness = 1.0

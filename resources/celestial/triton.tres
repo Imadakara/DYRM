@@ -1,16 +1,12 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://ep1ba60ji7ly"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Triton"]
 script = ExtResource("2")
 semi_major_axis_km = 354759.0
-eccentricity = 0.0
 inclination_deg = 156.885
-mean_longitude_deg = 0.0
-longitude_perihelion_deg = 0.0
-longitude_node_deg = 0.0
 period_days = 5.876854
 
 [resource]
@@ -22,8 +18,5 @@ parent_body = &"neptune"
 radius_km = 1353.4
 orbit = SubResource("Orbit_Triton")
 rotation_period_days = -5.876854
-axial_tilt_deg = 0.0
 albedo = 0.76
 base_color = Color(0.784314, 0.74902, 0.705882, 1)
-emissive = false
-brightness = 1.0

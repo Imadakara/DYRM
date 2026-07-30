@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://ig3sbudn5oca"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Uranus"]
 script = ExtResource("2")
@@ -17,13 +17,9 @@ period_days = 30685.4
 script = ExtResource("1")
 display_name = "Уран"
 body_id = &"uranus"
-body_type = 1
-parent_body = &""
 radius_km = 25362.0
 orbit = SubResource("Orbit_Uranus")
 rotation_period_days = -0.71833
 axial_tilt_deg = 97.77
 albedo = 0.3
 base_color = Color(0.560784, 0.831373, 0.862745, 1)
-emissive = false
-brightness = 1.0

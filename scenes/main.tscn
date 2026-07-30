@@ -1,85 +1,81 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://0gfworbm32sc"]
 
-[ext_resource type="Script" path="res://src/core/game_clock.gd" id="1"]
+[ext_resource type="Script" uid="uid://brji44vpggy4o" path="res://src/core/game_clock.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/environment/solar_system.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/environment/deep_space_layer.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/station_dumbbell/station_dumbbell.tscn" id="4"]
-[ext_resource type="Script" path="res://src/core/debug_fly_camera.gd" id="5"]
-[ext_resource type="Script" path="res://src/core/debug_overlay.gd" id="6"]
+[ext_resource type="Script" uid="uid://bkjy12vh5qwkt" path="res://src/core/debug_fly_camera.gd" id="5"]
+[ext_resource type="Script" uid="uid://yjsdtsld64tc" path="res://src/core/debug_overlay.gd" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/player/interaction_hud.tscn" id="7"]
-
-[sub_resource type="QuadMesh" id="BackgroundQuadMesh"]
-size = Vector2(8000, 8000)
 
 [sub_resource type="Environment" id="MainEnvironment"]
 background_mode = 1
-background_color = Color(0, 0, 0, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.02
 tonemap_mode = 3
 glow_enabled = true
 
-[node name="Main" type="Node3D"]
+[sub_resource type="QuadMesh" id="BackgroundQuadMesh"]
+size = Vector2(8000, 8000)
 
-[node name="GameClock" type="Node" parent="."]
+[node name="Main" type="Node3D" unique_id=69997180]
+
+[node name="GameClock" type="Node" parent="." unique_id=244841104]
 script = ExtResource("1")
 
-[node name="SolarSystem" parent="." instance=ExtResource("2")]
+[node name="SolarSystem" parent="." unique_id=1202613569 instance=ExtResource("2")]
 
-[node name="DeepSpace" parent="." instance=ExtResource("3")]
+[node name="DeepSpace" parent="." unique_id=2143250118 instance=ExtResource("3")]
 
-[node name="Station" parent="." instance=ExtResource("4")]
+[node name="Station" parent="." unique_id=1990954501 instance=ExtResource("4")]
 
-[node name="Lighting" type="Node3D" parent="."]
+[node name="Lighting" type="Node3D" parent="." unique_id=10451981]
 
-[node name="SunLight" type="DirectionalLight3D" parent="Lighting"]
-transform = Transform3D(-0.8298530692629954, -0.0023603345637715598, -0.557976981833062, 0, 0.9999910529731397, -0.004230126909609664, 0.557981974112772, -0.0035103837993115694, -0.8298456445452946, 0, 0, 0)
+[node name="SunLight" type="DirectionalLight3D" parent="Lighting" unique_id=326342547]
+transform = Transform3D(-0.82985306, -0.0023603346, -0.55797696, 0, 0.99999106, -0.0042301267, 0.55798197, -0.003510384, -0.82984567, 0, 0, 0)
 light_color = Color(1, 0.956863, 0.909804, 1)
 light_energy = 0.15
 shadow_enabled = true
 
-[node name="NeptuneFill" type="DirectionalLight3D" parent="Lighting"]
+[node name="NeptuneFill" type="DirectionalLight3D" parent="Lighting" unique_id=1480237507]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, 0, 0)
 light_color = Color(0.231373, 0.384314, 0.768627, 1)
 light_energy = 0.08
-shadow_enabled = false
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting"]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting" unique_id=524069853]
 environment = SubResource("MainEnvironment")
 
-[node name="MainCamera" type="Camera3D" parent="."]
+[node name="MainCamera" type="Camera3D" parent="." unique_id=238939749]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 22, 35)
-near = 0.05
-far = 4000.0
 script = ExtResource("5")
 preset_nodes = Array[NodePath]([NodePath("../CameraPresets/Preset_1"), NodePath("../CameraPresets/Preset_2"), NodePath("../CameraPresets/Preset_3"), NodePath("../CameraPresets/Preset_4"), NodePath("../CameraPresets/Preset_5")])
 
-[node name="BackgroundQuad" type="MeshInstance3D" parent="MainCamera"]
+[node name="BackgroundQuad" type="MeshInstance3D" parent="MainCamera" unique_id=1703922073]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3900)
 mesh = SubResource("BackgroundQuadMesh")
 
-[node name="CameraPresets" type="Node3D" parent="."]
+[node name="CameraPresets" type="Node3D" parent="." unique_id=1615584248]
 
-[node name="Preset_1" type="Marker3D" parent="CameraPresets"]
-position = Vector3(35, 22, 35)
+[node name="Preset_1" type="Marker3D" parent="CameraPresets" unique_id=791811212]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 22, 35)
 
-[node name="Preset_2" type="Marker3D" parent="CameraPresets"]
-position = Vector3(3, 55, 3)
+[node name="Preset_2" type="Marker3D" parent="CameraPresets" unique_id=1866168047]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 55, 3)
 
-[node name="Preset_3" type="Marker3D" parent="CameraPresets"]
-position = Vector3(40, 3, 0)
+[node name="Preset_3" type="Marker3D" parent="CameraPresets" unique_id=562476197]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 3, 0)
 
-[node name="Preset_4" type="Marker3D" parent="CameraPresets"]
-position = Vector3(25, 15, 25)
+[node name="Preset_4" type="Marker3D" parent="CameraPresets" unique_id=269801237]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 15, 25)
 
-[node name="Preset_5" type="Marker3D" parent="CameraPresets"]
-position = Vector3(70, 40, 70)
+[node name="Preset_5" type="Marker3D" parent="CameraPresets" unique_id=406100666]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 40, 70)
 
-[node name="InteractionHUD" parent="." instance=ExtResource("7")]
+[node name="InteractionHUD" parent="." unique_id=714677129 instance=ExtResource("7")]
 probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
 
-[node name="DebugOverlay" type="CanvasLayer" parent="."]
+[node name="DebugOverlay" type="CanvasLayer" parent="." unique_id=1547999356]
 script = ExtResource("6")
 game_clock_path = NodePath("../GameClock")
 station_root_path = NodePath("../Station")
@@ -87,74 +83,73 @@ solar_system_path = NodePath("../SolarSystem")
 player_path = NodePath("../Station/RotatingRing/Player")
 interaction_probe_path = NodePath("../Station/RotatingRing/Player/CameraPivot/PlayerCamera/InteractionProbe")
 
-[node name="Panel" type="PanelContainer" parent="DebugOverlay"]
+[node name="Panel" type="PanelContainer" parent="DebugOverlay" unique_id=1996842603]
 offset_right = 420.0
 offset_bottom = 220.0
 
-[node name="Labels" type="VBoxContainer" parent="DebugOverlay/Panel"]
+[node name="Labels" type="VBoxContainer" parent="DebugOverlay/Panel" unique_id=309627376]
 layout_mode = 2
 
-[node name="FpsLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="FpsLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=966849238]
 unique_name_in_owner = true
 layout_mode = 2
 text = "FPS: 0"
 
-[node name="EpochLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="EpochLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=1747371794]
 unique_name_in_owner = true
 layout_mode = 2
 text = "epoch_days: 0"
 
-[node name="TimeScaleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="TimeScaleLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=2083527865]
 unique_name_in_owner = true
 layout_mode = 2
 text = "time_scale: 1x"
 
-[node name="StationPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="StationPosLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=536962480]
 unique_name_in_owner = true
 layout_mode = 2
 text = "station (km): 0, 0, 0"
 
-[node name="RingAngleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="RingAngleLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=1712535869]
 unique_name_in_owner = true
 layout_mode = 2
 text = "ring angle: 0 deg"
 
-[node name="BodiesLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="BodiesLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=1212693406]
 unique_name_in_owner = true
 layout_mode = 2
-text = ""
 
-[node name="PlayerModuleLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerModuleLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=1902511885]
 unique_name_in_owner = true
 layout_mode = 2
 text = "module: -"
 
-[node name="PlayerPosLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerPosLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=2014553060]
 unique_name_in_owner = true
 layout_mode = 2
 text = "pos: 0, 0, 0"
 
-[node name="PlayerRadiusLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerRadiusLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=1029912873]
 unique_name_in_owner = true
 layout_mode = 2
 text = "radius: 0 m"
 
-[node name="PlayerUpLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerUpLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=2015725804]
 unique_name_in_owner = true
 layout_mode = 2
 text = "up: 0, 1, 0"
 
-[node name="PlayerVelLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerVelLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=2108290104]
 unique_name_in_owner = true
 layout_mode = 2
 text = "local_velocity: 0, 0, 0"
 
-[node name="PlayerGroundedLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerGroundedLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=381038463]
 unique_name_in_owner = true
 layout_mode = 2
 text = "grounded: false"
 
-[node name="PlayerTargetLabel" type="Label" parent="DebugOverlay/Panel/Labels"]
+[node name="PlayerTargetLabel" type="Label" parent="DebugOverlay/Panel/Labels" unique_id=499703347]
 unique_name_in_owner = true
 layout_mode = 2
 text = "target: -"
