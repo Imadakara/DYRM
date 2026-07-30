@@ -301,6 +301,23 @@ MAX_VELOCITY_SPEED_MULTIPLIER * delta` (an absolute per-frame cap, independent o
 freshly-spawned starts, both directions: max per-frame displacement now stays under the
 `walk_speed_m_s`-implied ceiling in every sampled case, no discontinuity at tap start or release.
 
+A **fourth** live report followed: the player could walk straight through the arc room's end
+walls and fall out of the station entirely. Root cause: the `reversed`/`excessive` checks above
+can't tell "Jolt's usual rotating-floor contact glitch" from "the player legitimately hit a wall and
+got pushed back" — both look like `actual_horizontal` opposing or falling short of
+`intended_horizontal`. Once the player reached an end wall, the correction kept overriding the
+correctly-blocked position with the full-speed analytical one, shoving them straight through
+(confirmed live: player reached `φ=-43°` against a `±30°` boundary, `on_floor=false`, radius ~120m
+— fully outside the module — while `get_slide_collision()` showed real wall contacts the whole
+time being discarded). Fixed by checking `get_slide_collision()` each frame the correction would
+fire: if any collision normal's dot product with `_up_global` falls below
+`WALL_NORMAL_DOT_THRESHOLD` (0.5) — i.e., the surface isn't the floor/ceiling — skip the correction
+entirely for that frame and trust Jolt's blocked result. Floor normals (even on the faceted,
+chord-segmented floor) stay within a few degrees of `up_global`; wall normals are roughly
+perpendicular. Live-verified: player now stops cleanly at `φ≈29.3°`, radius still pinned at
+~60m — no more walking through the end wall — while all four walk directions and the tap-start
+fix above remain unaffected.
+
 **All testing during development beyond this headless numeric run goes through two skills split
 by scope** — don't improvise MCP verification steps ad hoc:
 

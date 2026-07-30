@@ -65,6 +65,11 @@ const MAX_VELOCITY_SPEED_MULTIPLIER: float = 2.0
 ## множитель, не любое "длиннее намеренного", чтобы не задеть обычный шум
 ## контакта Jolt.
 const EXCESS_TANGENTIAL_SPEED_MULTIPLIER: float = 2.0
+## Порог "это стена, не пол" для той же поправки (скалярное произведение
+## нормали столкновения с up_global). Нормаль пола, даже гранёного из хорд,
+## отклоняется от up_global на единицы градусов (cos ~0.999); нормаль стены —
+## перпендикулярна или почти перпендикулярна. 0.5 — заведомый запас между ними.
+const WALL_NORMAL_DOT_THRESHOLD: float = 0.5
 
 ## Гравитационная ходьба (прежняя механика ТЗ-100, кольцо/плечо) или свободный
 ## полёт в невесомости (неподвижный ствол гантелеобразной станции, ТЗ-000
@@ -346,7 +351,20 @@ func _physics_process_gravity_walk(delta: float) -> void:
 		# нажатия (в сторону вращения плеча в обоих случаях), дальше — плавно.
 		var max_reasonable_len: float = config.run_speed_m_s * MAX_VELOCITY_SPEED_MULTIPLIER * delta
 		var excessive_absolute: bool = actual_horizontal.length() > max_reasonable_len
-		if excessive_absolute or (intended_len_sq > 0.0001 and (actual_horizontal.dot(intended_horizontal) < 0.0 or actual_horizontal.length_squared() > intended_len_sq * EXCESS_TANGENTIAL_SPEED_MULTIPLIER * EXCESS_TANGENTIAL_SPEED_MULTIPLIER)):
+		# Настоящая стена (торцевая/боковая) даёт контакт с нормалью, ЗАМЕТНО не
+		# совпадающей с "верхом" — найдено эмпирически (2026-07-30, живой
+		# отчёт "игрок проходит сквозь торец комнаты насквозь"): без этой
+		# проверки reversed/excessive выше не отличали паразитный разворот от
+		# ЗАКОННОГО столкновения со стеной и подменяли честно заблокированную
+		# позицию аналитической, стена переставала держать. Нормаль гранёного
+		# (из хорд) пола отклоняется от up_global на единицы градусов; нормаль
+		# стены — перпендикулярна или почти перпендикулярна ему.
+		var hit_wall: bool = false
+		for i in range(get_slide_collision_count()):
+			if get_slide_collision(i).get_normal().dot(_up_global) < WALL_NORMAL_DOT_THRESHOLD:
+				hit_wall = true
+				break
+		if not hit_wall and (excessive_absolute or (intended_len_sq > 0.0001 and (actual_horizontal.dot(intended_horizontal) < 0.0 or actual_horizontal.length_squared() > intended_len_sq * EXCESS_TANGENTIAL_SPEED_MULTIPLIER * EXCESS_TANGENTIAL_SPEED_MULTIPLIER))):
 			global_position += intended_horizontal - actual_horizontal
 		_settle_step_up(ring_basis)
 	else:
