@@ -26,3 +26,15 @@ extends Resource
 @export var bob_amplitude_v_m: float = 0.030
 @export var bob_amplitude_h_m: float = 0.020
 @export var stride_length_m: float = 0.75
+
+## Свободный полёт в невесомости (неподвижный ствол гантелеобразной станции —
+## ТЗ-000 §17, адаптация ТЗ-100). Тяга по локальным осям взгляда, без "пола" и
+## гравитации — принципиально другая модель движения, чем ходьба/бег выше,
+## поэтому отдельный блок полей, не переиспользование accel_ground_m_s2 и пр.
+@export var zero_g_thrust_m_s2: float = 4.0
+@export var zero_g_max_speed_m_s: float = 3.6
+@export var zero_g_damping_m_s2: float = 3.0
+
+## Длительность каждой половины экранного затенения при переходе ствол↔плечо
+## (документация 0.1.1: "по кнопке действия с затенением экрана"), секунды.
+@export var transition_fade_duration_s: float = 0.4

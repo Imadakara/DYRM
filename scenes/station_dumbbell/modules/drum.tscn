@@ -9,4 +9,4 @@ hull_material = ExtResource("2")
 
 [node name="Mesh" type="MeshInstance3D" parent="."]
 
-[node name="Collision" type="CollisionShape3D" parent="."]
+[node name="Collision" type="Node3D" parent="."]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://src/environment/station/station_root.gd" id="1"]
 [ext_resource type="Script" path="res://src/environment/station/ring_rotator.gd" id="2"]
@@ -15,6 +15,8 @@
 [ext_resource type="PackedScene" path="res://scenes/station_dumbbell/modules/drum.tscn" id="13"]
 [ext_resource type="PackedScene" path="res://scenes/station/equipment/laser_mount.tscn" id="14"]
 [ext_resource type="PackedScene" path="res://scenes/station/equipment/dish_antenna.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="16"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/station_transition.tscn" id="17"]
 
 [node name="StationDumbbell" type="Node3D"]
 script = ExtResource("1")
@@ -62,8 +64,16 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
 [node name="AccessToHabitat" type="Marker3D" parent="DespunTruss"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
 
+[node name="Transition" parent="DespunTruss/AccessToHabitat" instance=ExtResource("17")]
+target_module_id = &"habitat"
+prompt_text = "Перейти в жилой модуль"
+
 [node name="AccessToWork" type="Marker3D" parent="DespunTruss"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="Transition" parent="DespunTruss/AccessToWork" instance=ExtResource("17")]
+target_module_id = &"work"
+prompt_text = "Перейти в рабочий модуль"
 
 [node name="ExteriorLights" type="Node3D" parent="DespunTruss"]
 
@@ -99,12 +109,26 @@ dumbbell_config = ExtResource("6")
 module_id = &"habitat"
 display_name = "Жилой модуль"
 
+[node name="Transition" parent="RotatingRing/HabitatModule" instance=ExtResource("17")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 1.5)
+target_module_id = &"hub"
+prompt_text = "Перейти в модуль-втулку"
+
 [node name="WorkCorridor" parent="RotatingRing" instance=ExtResource("12")]
 dumbbell_config = ExtResource("6")
 
 [node name="WorkModule" parent="RotatingRing" instance=ExtResource("11")]
 module_id = &"work"
 display_name = "Рабочий модуль"
+
+[node name="Transition" parent="RotatingRing/WorkModule" instance=ExtResource("17")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 1.5)
+target_module_id = &"hub"
+prompt_text = "Перейти в модуль-втулку"
+
+[node name="Player" parent="RotatingRing" instance=ExtResource("16")]
+station_path = NodePath("../..")
+initial_module_id = &"habitat"
 
 [node name="Assembly" type="Node3D" parent="."]
 script = ExtResource("3")

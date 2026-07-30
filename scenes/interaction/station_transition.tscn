@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/interaction/station_transition.gd" id="1"]
+
+[node name="StationTransition" type="Area3D"]
+script = ExtResource("1")
+collision_layer = 1
+collision_mask = 1
+prompt_text = "Перейти"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]

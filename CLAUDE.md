@@ -186,7 +186,7 @@ full, unfiltered form as the final regression check before considering a task do
 
 ### Autotests: blocks and point runs
 
-The 40 tests are grouped into 8 semantic blocks, defined by `BLOCK_ORDER` at the top of
+The 42 tests are grouped into 8 semantic blocks, defined by `BLOCK_ORDER` at the top of
 `tools/run_tests.gd` (this is the single source of truth for the mapping below — re-read it if the
 suite has grown since this was written, don't trust this list blindly):
 
@@ -197,8 +197,8 @@ suite has grown since this was written, don't trust this list blindly):
 | `starfield` | T-16 | `StarfieldBuilder` determinism — no scene |
 | `station_structure` | T-09, T-12, T-13, T-14, T-18, T-19 | Station geometry: gravity, AABB, arcs, laser coverage, rotating ring, markers |
 | `physics_containment` | T-17 | RigidBody containment inside each module (heaviest single test) |
-| `player_locomotion` | T-20 – T-32 | `PlayerController`: orientation, walk/run/jump/step, teleport, determinism |
-| `interaction_ui` | T-33 – T-39 | Work panels, viewport mapping, doors/hatches, input capture |
+| `player_locomotion` | T-20 – T-32, T-41, T-42 | `PlayerController` on the dumbbell station (ТЗ-000 §17.3): orientation, walk/run/jump/step, teleport, determinism, zero-g flight (T-41), truss↔arm transition (T-42) |
+| `interaction_ui` | T-33 – T-39 | Work panels, viewport mapping, doors/hatches, input capture — currently SKIPped unconditionally: `run_tests.gd` always loads `main.tscn`, which now points at the dumbbell station (ТЗ-000 §17), and no panels/doors/hatches are placed there yet (a separate, not-yet-started task). The old ring scene these tests target (`scenes/station/station.tscn`) still exists and still works, just isn't reachable from this automated suite anymore — only from the `dyrm-tz` skill's live-MCP test cases against `scenes/dev/movement_calibration.tscn` |
 | `scene_integrity` | T-40 | Whole-tree invariants (e.g. no stray `AudioStreamPlayer`) |
 
 During iterative work on one subsystem, **run only the affected block plus its immediate neighbors

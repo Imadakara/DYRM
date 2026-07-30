@@ -84,6 +84,22 @@ func _build_geometry() -> void:
 	if far_cap_is_floor:
 		_build_interior_lights_straight()
 
+## Переопределяет StationModule.contains_point(): прямой осевой отсек, не дуга
+## — угол (унаследованные angle_start_deg/angle_end_deg, здесь заглушки, см.
+## класс-комментарий) не имеет геометрического смысла. Точка принадлежит
+## отсеку, если её проекция на локальную +Y (ось трубы, y=0 — ближний торец,
+## y=length_m — дальний) лежит в пределах длины трубы, И она лежит достаточно
+## близко к самой оси (радиус трубы) — без этого условия точка на полу плеча
+## (радиус 24 м) может случайно попасть в диапазон Y какого-нибудь модуля
+## ствола просто по совпадению чисел, хотя физически находится в десятках
+## метров в стороне от него (обнаружено T-29: "habitat" ошибочно
+## определялся как "hub").
+func contains_point(global_pos: Vector3) -> bool:
+	var local: Vector3 = to_local(global_pos)
+	if local.y < 0.0 or local.y > length_m:
+		return false
+	return Vector2(local.x, local.z).length() <= radius_m
+
 ## Внутреннее освещение отсека: несколько OmniLight3D вдоль трубы. Аналог
 ## StationModule._build_interior_lights(), но для прямой (не дуговой) геометрии.
 func _build_interior_lights_straight() -> void:

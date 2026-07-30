@@ -45,7 +45,42 @@ const WALL_THICKNESS_M: float = 0.3
 func _ready() -> void:
 	_build_geometry()
 
+## _collision_root (AnimatableBody3D) держит локальный transform строго
+## Transform3D.IDENTITY относительно себя же — вся геометрия коллизии,
+## построенная _build_collision()/_build_arc_collision() у наследников, уже
+## закодирована в собственных локальных трансформах CollisionShape3D-детей
+## относительно ЭТОГО узла. У модулей, чей родитель получает трансформ не
+## тождеством (арочные плечи гантели, ТЗ-000 §17 — StationDocking.dock()
+## поворачивает сам модуль один раз при сборке), Godot стабильно "запоминает"
+## для АnimatableBody3D-потомка какой-то трансформ ИЗ МОМЕНТА ДО этого
+## поворота предка и с тех пор не пересчитывает его заново (тот же почерк,
+## что и паразитный поворот AnimatableBody3D под непрерывно вращающимся
+## предком — DrumModule._physics_process(), база знаний Godot, запись 22 —
+## только здесь искажение статичное, разовое, а не растущее кадр к кадру).
+## Результат без этой защиты — коллизия пола/стен оказывается развёрнута на
+## произвольный угол относительно видимой геометрии, и игрок падает мимо
+## пола (обнаружено при первой живой проверке ходьбы по плечу гантели).
+func _physics_process(_delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
+	# Пишем свойство, только если оно реально не тождество — не безусловно
+	# каждый кадр: у АnimatableBody3D с sync_to_physics запись transform (даже
+	# тем же значением) даёт PhysicsServer3D лишний сигнал "трансформ
+	# изменился" ПОВЕРХ обычного пересчёта от вращения предка в этом же кадре,
+	# что может путать вычисление скорости синка для контакта (см. is_equal_approx
+	# ниже — по факту после первой коррекции это почти всегда true, реальная
+	# запись происходит примерно один раз, не каждый кадр).
+	if not _collision_root.transform.is_equal_approx(Transform3D.IDENTITY):
+		_collision_root.transform = Transform3D.IDENTITY
+
 func _build_geometry() -> void:
+	# Устанавливаем тождественный transform ДО первого _physics_process(), не
+	# только в нём — иначе Jolt успевает зарегистрировать этот AnimatableBody3D
+	# с тем неверным transform, что уже был на узле к моменту его появления в
+	# дереве, и первая же коррекция читается как скачок (тот же механизм, что
+	# и известный баг "epoch_days на целые сутки одним кадром → аномальная
+	# скорость", см. tools/run_tests.gd, physics_containment).
+	_collision_root.transform = Transform3D.IDENTITY
 	_clear_children(_collision_root)
 	_clear_generated_lights()
 
@@ -121,6 +156,26 @@ func _build_interior_lights(angle_start_rad: float, angle_end_rad: float, mid_ra
 		light.omni_range = config.interior_light_range_m
 		light.light_energy = config.interior_light_energy
 		add_child(light)
+
+## Принадлежит ли точка (глобальные координаты) этому модулю — источник истины
+## для PlayerController._update_current_module() (ТЗ-100), полиморфный вместо
+## единого углового перебора по всем модулям станции: у гантелеобразной
+## станции (см. ТЗ-000 §17) угол осмысленен только для дуговых модулей вроде
+## этого — переопределяется в CylindricalStationModule для осевых отсеков
+## неподвижного ствола, где углового смысла нет вовсе.
+##
+## Сравнение по кругу через wrapf(), не прямое "angle >= start and angle < end":
+## angle_start_deg/angle_end_deg дуговых модулей плеч гантели заданы
+## симметрично вокруг коннектора барабана (например, [-30, 30]) — простое
+## сравнение сломалось бы на границе 0°/360°, круговая формула — нет, и при
+## этом даёт те же результаты на не-обёрнутых диапазонах прежнего кольца
+## (проверено на границах: 45.0 ровно — соседний модуль, не этот).
+func contains_point(global_pos: Vector3) -> bool:
+	var local: Vector3 = to_local(global_pos)
+	var angle_deg: float = rad_to_deg(atan2(local.z, local.x))
+	var offset_deg: float = wrapf(angle_deg - angle_start_deg, 0.0, 360.0)
+	var span_deg: float = wrapf(angle_end_deg - angle_start_deg, 0.0, 360.0)
+	return offset_deg < span_deg
 
 ## Чистит сгенерированные _build_geometry() дочерние узлы перед пересборкой
 ## (сама пересборка происходит и в редакторе — см. класс-комментарий), иначе

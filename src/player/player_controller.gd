@@ -1,10 +1,16 @@
-## Игрок во вращающемся кольце станции (ТЗ-100, подсистемы 1.1/1.2). Дочерний
-## узел RotatingRing (A-01): скорость живёт в системе координат кольца
-## (local_velocity — источник истины), глобальная velocity собирается
+## Игрок на гантелеобразной станции (ТЗ-100, подсистемы 1.1/1.2; топология
+## ствол+барабан — ТЗ-000 §17). GRAVITY_WALK (плечо барабана, гравитация) —
+## дочерний узел RotatingRing (A-01): скорость живёт в системе координат
+## кольца (local_velocity — источник истины), глобальная velocity собирается
 ## непосредственно перед move_and_slide() и разбирается сразу после (принцип
-## 7.1.2). Базис игрока переориентируется каждый физкадр по формуле 6.4.3,
-## сохраняя направление взгляда при изменении «низа» (FR-03). Источник истины
-## по гравитации — StationRoot (принцип 7.1.1), собственной формулы здесь нет.
+## 7.1.2). Опора на пол и высота — ФИЗИКА Jolt (is_on_floor()/move_and_slide()),
+## не аналитический расчёт: пол — AnimatableBody3D, вращается вместе с
+## плечом, is_on_floor() и есть источник истины «стоит ли игрок». ZERO_G_FLY
+## (неподвижный ствол, невесомость) — отдельная ветка без пола вовсе, см.
+## _physics_process_zero_g(). Базис игрока переориентируется каждый физкадр по
+## формуле 6.4.3, сохраняя направление взгляда при изменении «низа» (FR-03).
+## Источник истины по гравитации — StationRoot (принцип 7.1.1), собственной
+## формулы здесь нет.
 class_name PlayerController
 extends CharacterBody3D
 
@@ -21,17 +27,22 @@ const AXIS_EPS: float = 0.01
 const STEP_UP_MARGIN_M: float = 0.02
 ## Порог ГОРИЗОНТАЛЬНОЙ скорости, ниже которого считаем, что игрок не пытается
 ## идти намеренно. Только это, само по себе, НЕ решает, откатывать ли дрейф
-## этого кадра — см. was_resting в _physics_process, где это условие сочетается
-## с _airborne_streak_frames. Раньше порог проверялся против ПОЛНОЙ скорости
-## (горизонталь + радиаль) и его приходилось расширять, чтобы пережить мигание
-## опоры на стыках хорд — это сломало реальные прыжки и разгон ходьбы (широкий
-## порог считал часть настоящего прыжка/торможения «покоем» и откатывал их).
-## Разнесение на два независимых сигнала (эта константа — горизонталь;
-## _airborne_streak_frames — радиаль) решает обе задачи, не мешая друг другу.
+## этого кадра — см. was_resting в _physics_process_gravity_walk(), где это
+## условие сочетается с _airborne_streak_frames. Раньше порог проверялся
+## против ПОЛНОЙ скорости (горизонталь + радиаль) и его приходилось расширять,
+## чтобы пережить мигание опоры на стыках хорд — это ломало реальные прыжки и
+## разгон ходьбы (широкий порог считал часть настоящего прыжка/торможения
+## «покоем» и откатывал их). Разнесение на два независимых сигнала (эта
+## константа — горизонталь; _airborne_streak_frames — радиаль) решает обе
+## задачи, не мешая друг другу.
 const REST_VELOCITY_EPS_M_S: float = 0.08
 ## Сколько кадров подряд без опоры ещё считается миганием is_on_floor() на
-## стыке 16-хордовой аппроксимации пола (эмпирически бывает до 3 кадров
-## подряд), а не настоящим прыжком/падением. Настоящий прыжок либо вообще не
+## стыке гранёного профиля пола, а не настоящим прыжком/падением. С переходом
+## на сплошную (без внутренних стыков) плиту пола дуговой комнаты (см.
+## ArcRoomStationModule._build_arc_collision()) источник мигания, для которого
+## это писалось, по идее устранён — запас оставлен как страховка на случай
+## остаточной нестабильности Jolt-контакта с непрерывно вращающимся
+## AnimatableBody3D, не только стыков. Настоящий прыжок либо вообще не
 ## попадает в эту ветку (реальный горизонтальный ввод сразу даёт
 ## REST_VELOCITY_EPS_M_S false), либо остаётся без опоры на порядок дольше
 ## этого запаса — отличить легко.
@@ -39,15 +50,23 @@ const MAX_FLICKER_AIRBORNE_FRAMES: int = 6
 ## Множитель к config.run_speed_m_s, задающий потолок для local_velocity сразу
 ## после move_and_slide() (см. применение ниже). move_and_slide() иногда
 ## выражает однократную коррекцию глубокого проникновения коллизии (например,
-## столкновение с закрытой дверью — тонкая, 0.1 м, створка против капсулы
-## радиусом 0.35 м) как «скорость» в десятки м/с, а не как разовую подвижку
-## позиции — и без ограничения этот артефакт переносится в local_velocity как
-## настоящий импульс и разгоняет игрока в обратном направлении на секунду и
-## больше (см. отчёт по ТЗ-100). Множитель 2 даёт запас над любой легитимной
-## комбинированной скоростью (бег config.run_speed_m_s + вертикальная
-## составляющая прыжка/падения, векторная сумма — не более ~4,1 м/с), но
-## далеко отсекает наблюдавшиеся выбросы (13-26 м/с при беге 2,0-3,6 м/с).
+## столкновение с закрытой дверью) как «скорость» в десятки м/с, а не как
+## разовую подвижку позиции — и без ограничения этот артефакт переносится в
+## local_velocity как настоящий импульс и разгоняет игрока в обратном
+## направлении на секунду и больше (см. отчёт по ТЗ-100). Множитель 2 даёт
+## запас над любой легитимной комбинированной скоростью (бег
+## config.run_speed_m_s + вертикальная составляющая прыжка/падения, векторная
+## сумма — не более ~4,1 м/с), но далеко отсекает наблюдавшиеся выбросы
+## (13-26 м/с при беге 2,0-3,6 м/с).
 const MAX_VELOCITY_SPEED_MULTIPLIER: float = 2.0
+
+## Гравитационная ходьба (прежняя механика ТЗ-100, кольцо/плечо) или свободный
+## полёт в невесомости (неподвижный ствол гантелеобразной станции, ТЗ-000
+## §17.3 — адаптация перемещения под новую топологию). Определяется по
+## фактическому родителю узла после teleport_to_module()/begin_transition(),
+## не хранится независимо от него.
+enum MovementMode { GRAVITY_WALK, ZERO_G_FLY }
+var _mode: MovementMode = MovementMode.GRAVITY_WALK
 
 signal module_changed(module_id: StringName)
 signal footstep(surface_id: StringName, speed: float)
@@ -72,13 +91,21 @@ var local_velocity: Vector3 = Vector3.ZERO
 @onready var _camera: PlayerCamera = get_node_or_null(camera_path) as PlayerCamera
 
 var _station: StationRoot
-var _rotating_ring: Node3D
+## RingRotator, не общий Node3D: gravity-walk-ветке нужен его config.ring_radius_m
+## (фактический радиус пола ТЕКУЩЕГО плеча — см. floor-snap ниже), а
+## get_rotating_ring() у StationRoot возвращает Node3D только по сигнатуре
+## контракта (годится и для старого кольца, и для гантели без её изменения).
+var _rotating_ring: RingRotator
 var _interaction_probe: InteractionProbe
 var _modules: Array[StationModule] = []
 
 var _move_input: Vector2 = Vector2.ZERO
+## Вертикальная тяга в невесомости (move_up/move_down, ТЗ-000 §17.3) — [-1, 1].
+## Не используется в GRAVITY_WALK (там вертикаль — только jump/гравитация).
+var _vertical_input: float = 0.0
 var _run_input: bool = false
 var _last_physical_move_input: Vector2 = Vector2.ZERO
+var _last_physical_vertical: float = 0.0
 var _last_physical_run: bool = false
 var _pending_jump: bool = false
 var _yaw_delta_accum_rad: float = 0.0
@@ -90,13 +117,13 @@ var _current_module: StringName = &""
 var _stride_accum_m: float = 0.0
 var _was_grounded: bool = false
 ## Кадров подряд без опоры — см. MAX_FLICKER_AIRBORNE_FRAMES. Обновляется в
-## конце _physics_process, читается в начале следующего.
+## конце _physics_process_gravity_walk(), читается в начале следующего.
 var _airborne_streak_frames: int = 0
 
 func _ready() -> void:
 	_station = get_node_or_null(station_path) as StationRoot
 	if _station != null:
-		_rotating_ring = _station.get_rotating_ring()
+		_rotating_ring = _station.get_rotating_ring() as RingRotator
 		_modules = _station.get_modules()
 	_interaction_probe = get_node_or_null(interaction_probe_path) as InteractionProbe
 
@@ -114,7 +141,12 @@ func _ready() -> void:
 	up_direction = Vector3.UP
 	floor_max_angle = deg_to_rad(config.max_slope_deg)
 	floor_snap_length = config.step_height_m
-	set_mouse_captured(true)
+	# Не захватывать системный курсор, если рядом работает MCP-мост (сессия
+	# отладки/тестирования через godot-runtime, а не игрок за столом) — иначе
+	# захват уводит курсор мыши у человека на реальном рабочем столе, даже
+	# когда окно самой игры визуально не активно/скрыто (background-режим).
+	if get_tree().root.get_node_or_null("McpBridge") == null:
+		set_mouse_captured(true)
 
 func _physics_process(delta: float) -> void:
 	_poll_physical_input()
@@ -124,7 +156,7 @@ func _physics_process(delta: float) -> void:
 	# инициализированы, и get_rotating_ring() мог вернуть null. Досбор —
 	# ленивый, на первом физкадре, когда вся сцена уже готова.
 	if _rotating_ring == null and _station != null:
-		_rotating_ring = _station.get_rotating_ring()
+		_rotating_ring = _station.get_rotating_ring() as RingRotator
 		_modules = _station.get_modules()
 
 	if _rotating_ring == null or _station == null:
@@ -135,11 +167,43 @@ func _physics_process(delta: float) -> void:
 		teleport_to_module(initial_module_id)
 		# Не резолвим движение в том же кадре, где телепорт: у Jolt ещё нет
 		# контакта с полом по новой позиции (AnimatableBody3D синхронизируется
-		# отдельным шагом), и move_and_slide() ниже увидел бы is_on_floor()
-		# ложно false — ровно тот же класс ошибки, что и мигание на стыках
-		# хорд (см. блок отката дрейфа), но гарантированно на первом кадре.
+		# отдельным шагом, а StationModule._collision_root вдобавок фиксирует
+		# свой identity-transform только в СВОЁМ следующем _physics_process(),
+		# см. его класс-комментарий), и move_and_slide() ниже увидел бы
+		# is_on_floor() ложно false — ровно тот же класс ошибки, что и мигание
+		# на стыках хорд (см. блок отката дрейфа), но гарантированно на первом
+		# кадре.
 		return
 
+	if _mode == MovementMode.ZERO_G_FLY:
+		_physics_process_zero_g(delta)
+	else:
+		_physics_process_gravity_walk(delta)
+	_update_current_module()
+
+## Ходьба/бег/прыжок на полу вращающегося плеча — физика Jolt
+## (move_and_slide()/is_on_floor()), не аналитический расчёт радиуса.
+##
+## Ключевая проблема этой схемы: пол — AnimatableBody3D с sync_to_physics
+## (нужен для верной коллизии под вращающимся родителем, см.
+## station_module.gd), и из-за этого Jolt на КАЖДОМ шаге заново разрешает
+## контакт с движущейся (вращающейся) поверхностью — это разрешение вносит
+## небольшую систематическую погрешность по касательной, даже при нулевой
+## запрошенной скорости. За много кадров она накапливается в заметный дрейф
+## («стоять 10 с» уезжает на десятки метров, если ничего не делать). Игрок при
+## этом и так вращается вместе с плечом БЕСПЛАТНО — просто будучи ребёнком
+## RotatingRing (A-01) в дереве сцены, без какого-либо участия физики. Фикс —
+## ниже, was_resting: пока нет намеренного горизонтального движения (ввод
+## погашен торможением) и опора недавняя (не идёт настоящий прыжок/падение),
+## тангенциальный сдвиг, который только что дал move_and_slide(), откатывается
+## целиком — совпадение с вращением плеча снова полностью на Node3D-иерархии,
+## без вклада физики. Радиальная координата вдобавок ВСЕГДА (не только в
+## покое) принудительно возвращается на точный радиус пола, пока игрок на полу
+## и не в процессе подъёма на ступеньку — той же природы фикс, но для другой
+## оси: Jolt-контакт даёт верное НАПРАВЛЕНИЕ, но не идеально точный радиус, и
+## без этой коррекции неточность на каждом шаге ходьбы читалась бы как
+## дёрганье камеры.
+func _physics_process_gravity_walk(delta: float) -> void:
 	var ring_basis: Basis = _rotating_ring.global_transform.basis
 
 	# FR-02: «низ» — только из StationRoot, источник истины (принцип 7.1.1).
@@ -151,7 +215,7 @@ func _physics_process(delta: float) -> void:
 	var g_local: Vector3 = ring_basis.inverse() * g_global
 
 	_reorient_basis(up_local)
-	_apply_step_up(ring_basis, delta)
+	_apply_step_up(ring_basis, delta, is_on_floor())
 
 	var v_up: float = local_velocity.dot(up_local)
 	var horizontal_velocity: Vector3 = local_velocity - up_local * v_up
@@ -177,23 +241,10 @@ func _physics_process(delta: float) -> void:
 
 	local_velocity = horizontal_velocity + up_local * v_up
 
-	# Пол — AnimatableBody3D с sync_to_physics (нужен для верной коллизии под
-	# вращающимся родителем, см. station_module.gd) — из-за этого Jolt на
-	# КАЖДОМ шаге заново разрешает контакт с движущейся (вращающейся)
-	# поверхностью, и это разрешение вносит небольшую систематическую
-	# погрешность по касательной, даже при нулевой запрошенной скорости. За
-	# много кадров она накапливается в заметный дрейф (обнаружено при отладке
-	# AC-07: «стоять 10 с» уезжало на десятки метров). move_and_slide() всё
-	# равно вызывается каждый кадр (иначе внутреннее состояние Jolt отстаёт от
-	# трансформа и при возобновлении движения даёт рывок/подвисание в воздухе)
-	# — но в полном покое результат отбрасывается: сцепление с вращением
-	# кольца уже даёт бесплатно родительский Node3D-трансформ (A-01).
-	# Два независимых условия, а не одна проверка полной скорости (см. отчёт
-	# по ТЗ-100 — единый порог либо пропускал мигание опоры на стыках хорд,
-	# либо, расширенный, ломал настоящие прыжки/разгон). Горизонталь: нет
-	# намеренного движения (ввод погашен торможением). Радиаль: без опоры не
-	# дольше, чем длится мигание на стыке — иначе это уже настоящий
-	# прыжок/падение, и откатывать его нельзя.
+	# Два независимых условия, а не одна проверка полной скорости (единый
+	# порог либо пропускал мигание опоры на стыках хорд, либо, расширенный,
+	# ломал настоящие прыжки/разгон). Горизонталь — REST_VELOCITY_EPS_M_S;
+	# радиаль — _airborne_streak_frames (см. константы).
 	var no_intentional_move: bool = horizontal_velocity.length() < REST_VELOCITY_EPS_M_S
 	var recent_floor_contact: bool = _airborne_streak_frames <= MAX_FLICKER_AIRBORNE_FRAMES
 	var was_resting: bool = not _stepped_up_this_frame and no_intentional_move and recent_floor_contact
@@ -204,6 +255,23 @@ func _physics_process(delta: float) -> void:
 	var max_sane_speed_m_s: float = config.run_speed_m_s * MAX_VELOCITY_SPEED_MULTIPLIER
 	if local_velocity.length() > max_sane_speed_m_s:
 		local_velocity = local_velocity.normalized() * max_sane_speed_m_s
+	# Переход "в воздухе -> на полу" в этом самом кадре: get_platform_velocity()
+	# ДО move_and_slide() (контакта ещё не было — вернул ~0) и ПОСЛЕ (контакт
+	# только что образовался — вернул реальную тангенциальную скорость плеча,
+	# ω·r) не совпадают, а компенсация выше (velocity = ...- get_platform_velocity()
+	# ... local_velocity = ...(velocity - get_platform_velocity())) устроена
+	# так, что доверяет одному и тому же значению по обе стороны вызова —
+	# на этом переходе почти вся скорость платформы (~7-8 м/с при радиусе 24 м)
+	# протекает в local_velocity как паразитный тангенциальный импульс,
+	# сбрасывающий игрока с пола, который тот же кадр только что нащупал (см.
+	# отчёт: диагностика по кадрам подтвердила ~7.2 м/с точно в момент первого
+	# контакта, velocity при этом честный ноль). Физически на приземлении
+	# относительная тангенциальная скорость к полу и обязана быть нулевой
+	# (прилипание к вращающейся платформе, то же допущение, что и в was_resting
+	# ниже) — обнуляем её явно на этом переходе, не полагаясь на разность
+	# get_platform_velocity() по разные стороны одного move_and_slide().
+	if is_on_floor() and not _was_grounded:
+		local_velocity = up_local * local_velocity.dot(up_local)
 	if was_resting:
 		# Откатываем ТОЛЬКО тангенциальную (не вдоль up) составляющую сдвига —
 		# именно она и есть паразитный дрейф от разрешения контакта с
@@ -217,26 +285,62 @@ func _physics_process(delta: float) -> void:
 		_settle_step_up(ring_basis)
 
 	# Радиальная координата — не результат разрешения контакта Jolt, а прямой
-	# расчёт положения точки на окружности пола станции (config.ring_radius_m,
-	# FR-30): пока игрок на полу и не в процессе подъёма на ступеньку, XZ-часть
-	# позиции (в системе координат кольца) масштабируется до точного радиуса
-	# каждый кадр. Раньше точность держалась только в полном покое (was_resting)
-	# — при ходьбе та же погрешность пересчёта контакта на каждом шаге читалась
-	# как дёрганье камеры (см. отчёт по ТЗ-100). Направление (угол) и осевую
-	# составляющую (position.y) не трогаем — реальное перемещение идёт как обычно.
+	# расчёт положения точки на окружности пола ТЕКУЩЕГО плеча
+	# (_rotating_ring.config.ring_radius_m, FR-30): пока игрок на полу и не в
+	# процессе подъёма на ступеньку, XZ-часть позиции (в системе координат
+	# кольца) масштабируется до точного радиуса каждый кадр — не только в
+	# покое (иначе та же погрешность пересчёта контакта на каждом шаге ходьбы
+	# читалась бы как дёрганье камеры). Направление (угол) и осевую
+	# составляющую (position.y) не трогаем — реальное перемещение по ним идёт
+	# через move_and_slide() выше. _rotating_ring.config, не _station.config:
+	# у гантелеобразной станции (ТЗ-000 §17) это разные ресурсы — пол
+	# ТЕКУЩЕГО плеча (24 м) лежит в конфиге вращателя
+	# (station_dumbbell_rotator.tres), а не в общем конфиге StationRoot
+	# (station_default.tres, ring_radius_m=60 — орбитальные параметры станции,
+	# доставшиеся от прежнего кольца).
 	if is_on_floor() and not _stepped_up_this_frame:
 		var radial_xz: Vector2 = Vector2(position.x, position.z)
 		var current_radius: float = radial_xz.length()
 		if current_radius > AXIS_EPS:
-			var radial_scale: float = _station.config.ring_radius_m / current_radius
+			var radial_scale: float = _rotating_ring.config.ring_radius_m / current_radius
 			position.x *= radial_scale
 			position.z *= radial_scale
+
 	_airborne_streak_frames = 0 if is_on_floor() else _airborne_streak_frames + 1
-	_update_footstep(horizontal_velocity, delta)
-	_update_grounded_signal()
-	_update_current_module()
+	_update_footstep(horizontal_velocity, is_on_floor(), delta)
+	_update_grounded_signal(is_on_floor())
 	if _camera != null:
 		_camera.update_bob(horizontal_velocity.length(), is_on_floor(), delta)
+
+## Свободный полёт в невесомости неподвижного ствола (ТЗ-000 §17.3 — этой
+## механики не существовало вообще, не адаптация ходьбы). Тяга — по осям
+## текущего взгляда игрока (transform.basis), без гравитации/пола/прыжка;
+## при отсутствии ввода скорость гасится демпфированием, а не мгновенно.
+## Родитель на время этого режима не вращается (DespunTruss/StationDumbbell),
+## поэтому, в отличие от gravity-walk, local_velocity переводится в velocity
+## через собственный global_transform.basis игрока, а не через ring_basis
+## отдельного вращающегося узла — их тут просто нет.
+func _physics_process_zero_g(delta: float) -> void:
+	if _yaw_delta_accum_rad != 0.0:
+		transform.basis = transform.basis.rotated(transform.basis.y, _yaw_delta_accum_rad).orthonormalized()
+		_yaw_delta_accum_rad = 0.0
+	up_direction = transform.basis.y
+
+	var thrust_dir: Vector3 = transform.basis.x * _move_input.x - transform.basis.z * _move_input.y \
+			+ transform.basis.y * _vertical_input
+	thrust_dir = thrust_dir.limit_length(1.0)
+
+	if thrust_dir.length_squared() > 0.0:
+		local_velocity = local_velocity.move_toward(thrust_dir * config.zero_g_max_speed_m_s, config.zero_g_thrust_m_s2 * delta)
+	else:
+		local_velocity = local_velocity.move_toward(Vector3.ZERO, config.zero_g_damping_m_s2 * delta)
+
+	velocity = global_transform.basis * local_velocity
+	move_and_slide()
+	local_velocity = global_transform.basis.inverse() * velocity
+
+	if _camera != null:
+		_camera.update_bob(0.0, false, delta)
 
 func _poll_physical_input() -> void:
 	var input_dir := Vector2.ZERO
@@ -259,6 +363,14 @@ func _poll_physical_input() -> void:
 	if run_pressed != _last_physical_run:
 		_last_physical_run = run_pressed
 		set_run_input(run_pressed)
+	var vertical: float = 0.0
+	if Input.is_action_pressed(&"move_up"):
+		vertical += 1.0
+	if Input.is_action_pressed(&"move_down"):
+		vertical -= 1.0
+	if vertical != _last_physical_vertical:
+		_last_physical_vertical = vertical
+		set_vertical_input(vertical)
 	if Input.is_action_just_pressed(&"jump"):
 		trigger_jump()
 	if Input.is_action_just_pressed(&"interact"):
@@ -318,9 +430,9 @@ func _reorient_basis(up_local: Vector3) -> void:
 ## _settle_step_up() опускает его обратно на пол после сдвига.
 var _stepped_up_this_frame: bool = false
 
-func _apply_step_up(ring_basis: Basis, delta: float) -> void:
+func _apply_step_up(ring_basis: Basis, delta: float, grounded: bool) -> void:
 	_stepped_up_this_frame = false
-	if not is_on_floor():
+	if not grounded:
 		return
 	var horizontal_local: Vector3 = local_velocity - transform.basis.y * local_velocity.dot(transform.basis.y)
 	if horizontal_local.length() < 0.01:
@@ -339,9 +451,9 @@ func _settle_step_up(_ring_basis: Basis) -> void:
 	_stepped_up_this_frame = false
 	move_and_collide(-_up_global * (config.step_height_m + STEP_UP_MARGIN_M))
 
-func _update_footstep(horizontal_velocity: Vector3, delta: float) -> void:
+func _update_footstep(horizontal_velocity: Vector3, grounded: bool, delta: float) -> void:
 	var speed: float = horizontal_velocity.length()
-	if is_on_floor() and speed > 0.01:
+	if grounded and speed > 0.01:
 		_stride_accum_m += speed * delta
 		if _stride_accum_m >= config.stride_length_m:
 			_stride_accum_m -= config.stride_length_m
@@ -349,16 +461,20 @@ func _update_footstep(horizontal_velocity: Vector3, delta: float) -> void:
 	else:
 		_stride_accum_m = 0.0
 
-func _update_grounded_signal() -> void:
-	var grounded: bool = is_on_floor()
+func _update_grounded_signal(grounded: bool) -> void:
 	if grounded != _was_grounded:
 		_was_grounded = grounded
 		grounded_changed.emit(grounded)
 
+## Через полиморфный StationModule.contains_point(global_pos) вместо единого
+## углового перебора — гантелеобразная станция (ТЗ-000 §17) не одна дуга: у
+## осевых отсеков неподвижного ствола угол не имеет смысла вовсе, у дуговых
+## комнат плеч — своя локальная система координат, не система игрока. Каждый
+## модуль сам знает, как проверить принадлежность точки, поэтому эта функция
+## больше не зависит от того, чьим ребёнком сейчас является игрок.
 func _update_current_module() -> void:
-	var angle_deg: float = wrapf(rad_to_deg(atan2(position.z, position.x)), 0.0, 360.0)
 	for module in _modules:
-		if angle_deg >= module.angle_start_deg and angle_deg < module.angle_end_deg:
+		if module.contains_point(global_position):
 			if module.module_id != _current_module:
 				_current_module = module.module_id
 				module_changed.emit(_current_module)
@@ -373,6 +489,14 @@ func set_move_input(input: Vector2) -> void:
 
 func set_run_input(running: bool) -> void:
 	_run_input = running
+
+## Вертикальная тяга в невесомости (move_up/move_down) — программный дубль,
+## тот же приём, что и set_move_input(). Не действует в GRAVITY_WALK — там нет
+## понятия "вертикаль" в системе игрока, только jump/гравитация.
+func set_vertical_input(value: float) -> void:
+	if _is_input_suppressed():
+		return
+	_vertical_input = clampf(value, -1.0, 1.0)
 
 func add_look_input(delta_deg: Vector2) -> void:
 	if _is_input_suppressed():
@@ -432,8 +556,10 @@ func _is_input_suppressed() -> bool:
 
 # ─ Состояние (7.4) ────────────────────────────────────────────────────────
 
+## is_on_floor() только в GRAVITY_WALK — в ZERO_G_FLY "пола" нет вовсе, физика
+## его там не резолвит осмысленно.
 func is_grounded() -> bool:
-	return is_on_floor()
+	return _mode == MovementMode.GRAVITY_WALK and is_on_floor()
 
 func current_module() -> StringName:
 	return _current_module
@@ -466,18 +592,52 @@ func get_look_angles() -> Vector2:
 
 # ─ Телепорт (FR-53) ───────────────────────────────────────────────────────
 
+## Централизует переход между модулями и, при необходимости, между системами
+## отсчёта (ТЗ-000 §17.3: неподвижный ствол — невесомость, вращающееся плечо —
+## гравитация). Используется при первом спавне (initial_module_id), тестами
+## напрямую и как ядро begin_transition() ниже — сама по себе БЕЗ затемнения
+## экрана, это забота вызывающей стороны.
 func teleport_to_module(module_id: StringName) -> void:
 	if _station == null:
 		return
+	var module: StationModule = _station.get_module(module_id)
 	var spawn: Node3D = _station.get_spawn_point(module_id)
-	if spawn == null:
+	if module == null or spawn == null:
 		return
+
 	local_velocity = Vector3.ZERO
 	velocity = Vector3.ZERO
+	# Сброс streak'а без опоры — иначе телепорт сразу после настоящего прыжка/
+	# падения (streak уже большой) на мгновение считал бы новую позицию "не
+	# недавним контактом" в was_resting-проверке, хотя игрок только что встал
+	# на пол через global_position = spawn.global_position ниже.
+	_airborne_streak_frames = 0
+	# _was_grounded тоже сбрасываем: иначе переход "в воздухе -> на полу" в
+	# _physics_process_gravity_walk() (см. его комментарий про get_platform_velocity())
+	# не сработает на ПЕРВОМ приземлении после телепорта, если до него игрок
+	# уже стоял на полу где-то ещё (_was_grounded остался бы true с прошлого
+	# места) — тот же паразитный тангенциальный импульс от вращения плеча
+	# просочился бы необнаруженным именно в этом случае.
+	_was_grounded = false
+
+	# Игрок реально переезжает между DespunTruss (неподвижный ствол) и
+	# RotatingRing (вращающееся плечо) — не только математически, физическим
+	# родителем в дереве сцены, иначе вся ходьба (co-rotating design, A-01)
+	# перестала бы работать бесплатно через Node3D-иерархию. remove_child/
+	# add_child, а не reparent(): последний метод не входит в контракт "API
+	# стабильно с 4.2" (см. CLAUDE.md) без дополнительной проверки, а глобальный
+	# transform всё равно немедленно переустанавливается ниже.
+	var target_parent: Node = module.get_parent()
+	var current_parent: Node = get_parent()
+	if target_parent != current_parent and current_parent != null:
+		current_parent.remove_child(self)
+		target_parent.add_child(self)
+	_mode = MovementMode.GRAVITY_WALK if target_parent == _rotating_ring else MovementMode.ZERO_G_FLY
+
 	global_position = spawn.global_position
-	if _rotating_ring != null and _station != null:
+	if _mode == MovementMode.GRAVITY_WALK:
 		var up_local: Vector3 = (_rotating_ring.global_transform.basis.inverse() * _station.get_gravity_up_at(global_position)).normalized()
-		# forward — тангенциальное направление обхода кольца; right (вдоль оси
+		# forward — тангенциальное направление обхода плеча; right (вдоль оси
 		# кольца) выводится из него, а не наоборот (иначе «вперёд» указывает
 		# вдоль оси кольца, в стену — см. отчёт).
 		var forward: Vector3 = up_local.cross(Vector3.UP)
@@ -487,6 +647,25 @@ func teleport_to_module(module_id: StringName) -> void:
 		var right: Vector3 = forward.cross(up_local)
 		transform.basis = Basis(right, up_local, -forward)
 		_prev_right = right
+	else:
+		# Невесомость: физически осмысленного "верха" нет (get_gravity_up_at()
+		# у самой оси вырождается — см. AXIS_EPS), формула 6.4.3 неприменима.
+		# Базис просто выравнивается по собственной ориентации модуля (вдоль
+		# трубы) — валидный ортонормированный старт для свободного полёта.
+		transform.basis = module.global_transform.basis
+		_prev_right = transform.basis.x
+
+## Переход между стволом и плечом по кнопке действия, с затенением экрана
+## (ТЗ-000 §17.3, документация 0.1.1: "без физического перемещения по
+## коридору" — у коридора плеча нет коллизии специально по этой причине).
+## Вызывается из StationTransition.interact() (src/interaction/).
+func begin_transition(target_module_id: StringName) -> void:
+	var hud: Node = get_tree().get_first_node_in_group(&"interaction_hud")
+	if hud != null and hud.has_method(&"fade_out"):
+		await hud.fade_out(config.transition_fade_duration_s)
+	teleport_to_module(target_module_id)
+	if hud != null and hud.has_method(&"fade_in"):
+		hud.fade_in(config.transition_fade_duration_s)
 
 # ─ Сохранение (ТЗ-073) ────────────────────────────────────────────────────
 
