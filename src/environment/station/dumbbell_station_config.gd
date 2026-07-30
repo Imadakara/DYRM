@@ -30,6 +30,21 @@ extends Resource
 ## Коридор — чисто структурный элемент, без коллизии: игрок телепортируется
 ## через люк на барабане, а не идёт по коридору пешком (документация 0.1.1,
 ## «без перемещения по ним, с затенением экрана»).
+##
+## corridor_length_m напрямую определяет АБСОЛЮТНЫЙ радиус пола жилого/рабочего
+## модуля от оси вращения: стыковка по коннекторам (station_docking.gd) кладёт
+## Connector_Corridor комнаты ровно на drum_radius_m + corridor_length_m, а пол
+## комнаты лежит дальше вдоль той же оси ещё на (arc_room_outer_radius_m -
+## arc_room_inner_radius_m) — то есть при неизменном arc_room_outer_radius_m
+## радиус пола = drum_radius_m + corridor_length_m + глубина комнаты. Значение
+## по умолчанию здесь (10 м) НЕ используется на практике — реальное значение
+## живёт в resources/dumbbell_station_default.tres (51.0, подобрано так, чтобы
+## 4.0 + 51.0 + 5.0 = 60 = arc_room_outer_radius_m, тот же радиус пола, что и у
+## старого доказанно рабочего кольца). Меняя глубину комнаты
+## (arc_room_outer/inner_radius_m), нужно синхронно поправить corridor_length_m
+## в .tres на ту же дельту, иначе пол сдвинется — проверено эмпирически живым
+## запуском, не выводится из докинга "на глаз" (см. историю правки в
+## arc_room_station_module.gd, поле inner_radius_m).
 @export var corridor_radius_m: float = 1.2
 @export var corridor_length_m: float = 10.0
 
@@ -47,12 +62,15 @@ extends Resource
 ## станции (StationConfig.ring_radius_m), не исходные 24 м первой ревизии
 ## дуговой комнаты: при 24 м угловая скорость плеча заметно выше (тот же g,
 ## меньший радиус), и физика ходьбы разваливалась — см. отчёт по адаптации
-## ТЗ-100 под ТЗ-000 §17.3. arc_room_inner_radius_m держит ту же глубину
-## комнаты (10 м), просто сдвинутую на новый радиус.
-@export var arc_room_inner_radius_m: float = 50.0
+## ТЗ-100 под ТЗ-000 §17.3. arc_room_inner_radius_m держал ту же глубину
+## комнаты (10 м), просто сдвинутую на новый радиус — позже глубина уменьшена
+## вдвое (до 5 м) правкой одного только потолка, пол (arc_room_outer_radius_m)
+## не тронут, см. комментарий у соответствующего поля в
+## arc_room_station_module.gd для деталей и обоснования.
+@export var arc_room_inner_radius_m: float = 55.0
 @export var arc_room_outer_radius_m: float = 60.0
 @export var arc_room_axial_half_width_m: float = 4.0
-@export var arc_room_angle_span_deg: float = 60.0
+@export var arc_room_angle_span_deg: float = 30.0
 ## Число гранёных сегментов дуги пола/потолка/стен — то же самое (16), что и
 ## StationConfig.arc_segment_count у старого кольца станции, не отдельное
 ## "6-8 сегментов ради читаемого глазом профиля" первой ревизии. Не
