@@ -1,12 +1,35 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=4]
 
 [ext_resource type="Script" path="res://src/environment/station/dumbbell_corridor.gd" id="1"]
-[ext_resource type="Resource" path="res://materials/mat_hull.tres" id="2"]
-[ext_resource type="Resource" path="res://resources/dumbbell_station_default.tres" id="3"]
+[ext_resource type="Material" path="res://materials/mat_hull.tres" id="2"]
+[ext_resource type="Script" path="res://src/environment/station/station_connector.gd" id="4_t201i"]
 
-[node name="Corridor" type="Node3D"]
+[sub_resource type="ArrayMesh" id="ArrayMesh_bhanh"]
+_surfaces = [{
+"aabb": AABB(-1.2, 0, -1.2, 2.4, 51, 2.4),
+"format": 34359742471,
+"index_count": 96,
+"index_data": PackedByteArray("AAABAAIAAAACAAMAAwACAAQAAwAEAAUABQAEAAYABQAGAAcABwAGAAgABwAIAAkACQAIAAoACQAKAAsACwAKAAwACwAMAA0ADQAMAA4ADQAOAA8ADwAOABAADwAQABEAEQAQABIAEQASABMAEwASABQAEwAUABUAFQAUABYAFQAWABcAFwAWABgAFwAYABkAGQAYABoAGQAaABsAGwAaABwAGwAcAB0AHQAcAB4AHQAeAB8AHwAeACAAHwAgACEA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 34,
+"vertex_data": PackedByteArray("mpmZPwAAAAAAAAAAmpmZPwAATEIAAAAAbOiNPwAATELmHus+bOiNPwAAAADmHus+JDlZPwAATEIkOVk/JDlZPwAAAAAkOVk/5h7rPgAATEJs6I0/5h7rPgAAAABs6I0/zWypJAAATEKamZk/zWypJAAAAACamZk/5h7rvgAATEJs6I0/5h7rvgAAAABs6I0/JDlZvwAATEIkOVk/JDlZvwAAAAAkOVk/bOiNvwAATELmHus+bOiNvwAAAADmHus+mpmZvwAATELNbCklmpmZvwAAAADNbCklbOiNvwAATELmHuu+bOiNvwAAAADmHuu+JDlZvwAATEIkOVm/JDlZvwAAAAAkOVm/5h7rvgAATEJs6I2/5h7rvgAAAABs6I2/MyN+pQAATEKamZm/MyN+pQAAAACamZm/5h7rPgAATEJs6I2/5h7rPgAAAABs6I2/JDlZPwAATEIkOVm/JDlZPwAAAAAkOVm/bOiNPwAATELmHuu+bOiNPwAAAADmHuu+mpmZPwAATELNbKmlmpmZPwAAAADNbKmlAAA7lXBr870AADuVcGvzvQAAYKAsYvK6AABTqp1bArcAAMC7lFVtrQAAPcSUVcanAACq1Z1bLZsAAJ7fLGL1kwAACfgSeDmE//8J+OyHOYT//57f0p31k///qtVhpC2b//89xGqqxqf//8C7aqptrf//U6phpAK3//9goNKd8rr///WH7Ie7vwn4/38SeLu/nt//fyxi8rqq1f9/nVsCtz3E/3+UVW2twLv/f5RVxqdTqv9/nVstm2Cg/38sYvWT9Yf/fxJ4OYQJeP9/7Ic5hJ5f/3/SnfWTq1X/f2GkLZs+RP9/aqrGp8E7/39qqm2tVCr/f2GkArdgIP9/0p3yujwV/3+OlPO9PBX/f46U870=")
+}]
+
+[node name="Corridor" type="Node3D" unique_id=1146912229]
 script = ExtResource("1")
-dumbbell_config = ExtResource("3")
 hull_material = ExtResource("2")
 
-[node name="Hull" type="MeshInstance3D" parent="."]
+[node name="Hull" type="MeshInstance3D" parent="." unique_id=458130804]
+material_override = ExtResource("2")
+mesh = SubResource("ArrayMesh_bhanh")
+
+[node name="Connector_Inner" type="Marker3D" parent="." unique_id=1381872521]
+transform = Transform3D(1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0)
+script = ExtResource("4_t201i")
+connector_id = &"Connector_Inner"
+
+[node name="Connector_Outer" type="Marker3D" parent="." unique_id=1192499514]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 51, 0)
+script = ExtResource("4_t201i")
+connector_id = &"Connector_Outer"

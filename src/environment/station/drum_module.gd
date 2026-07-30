@@ -5,6 +5,23 @@
 ## ним (station_docking.gd), а не через жёсткий Transform3D-перебор в
 ## station_dumbbell.tscn (как раньше делал dumbbell_arm_layout.gd).
 ##
+## Меш и коллизия — СТАТИЧНЫЕ, запечены прямо в drum.tscn (полая труба:
+## гранёное кольцо стеновых сегментов, а не сплошной CylinderShape3D — через
+## ось барабана проходит невесомый интерьер втулки, ТЗ-000 §17.3, центр hub
+## радиусом 3 м лежит ВНУТРИ радиуса барабана 4 м на той же оси; сплошной
+## цилиндр перекрыл бы пространство для полёта игрока, см. историю: капсула
+## игрока в центре hub оказывалась встроена в коллизию и депенетрацией
+## выталкивалась на всю полудлину барабана, T-29 сообщал ложный
+## current_module). Оба торца трубы открыты (без крышек) — hub без коллизии
+## на границах, игрок телепортируется через люк, не идёт пешком. Раньше эта
+## геометрия (и коннекторы) пересобирались в коде каждый _ready() из
+## dumbbell_config; теперь — обычный сохранённый MeshInstance3D/
+## CollisionShape3D-поддерево, редактируемое как любая другая сцена (в т.ч.
+## экспортируемое в .glb для правки в Blender). Чтобы изменить форму —
+## перегенерировать геометрию через DumbbellMeshBuilder (см. git-историю этого
+## файла до перехода на статику) и заново запечь в drum.tscn, либо
+## отредактировать меш/коллайдеры вручную.
+##
 ## Собственная сцена модульной сборки — раньше барабан был инлайн-узлами
 ## (MeshInstance3D/CollisionShape3D) прямо в station_dumbbell.tscn.
 ## AnimatableBody3D, не Node3D+StaticBody3D: как и StationModule._collision_root
@@ -15,59 +32,13 @@
 class_name DrumModule
 extends AnimatableBody3D
 
-@export var dumbbell_config: DumbbellStationConfig
 @export var hull_material: Material
 
 @onready var _mesh_instance: MeshInstance3D = $Mesh
-## Контейнер для процедурно генерируемых стеновых сегментов (см.
-## _build_hollow_collision()) — не сам коллайдер, коллизию несут его дети.
-@onready var _collision_root: Node3D = $Collision
 
 func _ready() -> void:
-	var radius_m: float = dumbbell_config.drum_radius_m
-	var length_m: float = dumbbell_config.drum_length_m
-
-	# build_tube_wall_mesh()/tube_wall_collision_transforms() кладут трубу с
-	# ближним торцом на локальном y=0, до y=length_m — а собственный локальный
-	# ноль барабана уже занят серединой (коннекторы Connector_ArmHabitat/
-	# Connector_ArmWork стоят на y=0 в _radial_connector_transform()), поэтому
-	# и меш, и коллизию центрируем сдвигом на -length_m*0.5.
-	_mesh_instance.mesh = DumbbellMeshBuilder.build_tube_wall_mesh(radius_m, length_m, dumbbell_config.segment_count)
-	_mesh_instance.position = Vector3(0.0, -length_m * 0.5, 0.0)
 	if hull_material != null:
 		_mesh_instance.material_override = hull_material
-
-	_build_hollow_collision(radius_m, length_m)
-
-	StationConnector.ensure(self, "Connector_ArmHabitat", _radial_connector_transform(0.0, radius_m))
-	StationConnector.ensure(self, "Connector_ArmWork", _radial_connector_transform(PI, radius_m))
-
-## Барабан — ПОЛАЯ труба (кольцо гранёных стеновых сегментов, тот же приём,
-## что у CylindricalStationModule/StationModule), а не сплошной CylinderShape3D
-## барабана целиком: сквозь его ось проходит невесомый интерьер втулки (hub,
-## ТЗ-000 §17.3) — центр hub (радиус 3 м) физически лежит ВНУТРИ радиуса
-## барабана (4 м), на той же оси. Сплошной цилиндр полностью перекрывал бы
-## пространство, где должен свободно летать игрок. Обнаружено эмпирически при
-## адаптации ТЗ-100 под гантелеобразную станцию: капсула игрока, заспавненная
-## в центре hub, оказывалась встроена в сплошную коллизию барабана, и Jolt
-## депенетрацией выталкивал её вдоль оси на всю полудлину барабана — ровно на
-## границу antenna/hub или hub/transmission (T-29 сообщал ложный current_module).
-## Оба торца трубы остаются открытыми (без крышек) — hub целиком без коллизии
-## на границах, игрок телепортируется через люк, а не идёт пешком (та же
-## логика, что и у коридора плеча).
-func _build_hollow_collision(radius_m: float, length_m: float) -> void:
-	for child in _collision_root.get_children():
-		child.free()
-	var wall_shape := BoxShape3D.new()
-	var chord_len: float = DumbbellMeshBuilder.wall_chord_length(radius_m, dumbbell_config.segment_count)
-	wall_shape.size = Vector3(chord_len, length_m, dumbbell_config.wall_thickness_m)
-	for local_transform in DumbbellMeshBuilder.tube_wall_collision_transforms(radius_m, length_m, dumbbell_config.segment_count):
-		var cs := CollisionShape3D.new()
-		cs.shape = wall_shape
-		var t: Transform3D = local_transform
-		t.origin.y -= length_m * 0.5
-		cs.transform = t
-		_collision_root.add_child(cs)
 
 ## Барабан — неподвижный якорь внутри вращающегося RotatingRing: сам он
 ## никогда не должен иметь собственного поворота относительно родителя (весь
@@ -85,7 +56,7 @@ func _build_hollow_collision(radius_m: float, length_m: float) -> void:
 ## похоже на квирк Jolt при процедурно назначенной форме коллизии у
 ## kinematic-тела с непрерывно вращающимся родителем — см. базу знаний Godot,
 ## запись 22 (родственно записи 21 — тот же почерк: AnimatableBody3D +
-## sync_to_physics даёт аномальную скорость/поворот, но без транспорт-скачка
+## sync_to_physics даёт аномальную скорость/поворот, но без транспорт-скачок
 ## как триггера). Раз уже пристыкованные к барабану коридоры
 ## СВОЙ transform не меняют, любой самостоятельный поворот барабана после
 ## стыковки — всегда рассинхронизация (видимый шов между барабаном и
@@ -95,14 +66,3 @@ func _physics_process(_delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	transform = Transform3D.IDENTITY
-
-## Коннектор на боковой поверхности барабана на угле angle_rad: локальная +Y —
-## радиально наружу (та же ось-конвенция, что и у коридора/дуговой комнаты
-## для стыковки — X касательная, Z вдоль главной оси станции). Базис строится
-## в коде (Basis(x,y,z) берёт столбцы корректно) — тот же приём, которым
-## раньше dumbbell_arm_layout.gd размещал плечи напрямую.
-func _radial_connector_transform(angle_rad: float, radius_m: float) -> Transform3D:
-	var radial_dir := Vector3(cos(angle_rad), 0.0, sin(angle_rad))
-	var tangent_dir := Vector3(-sin(angle_rad), 0.0, cos(angle_rad))
-	var basis := Basis(tangent_dir, radial_dir, Vector3.UP)
-	return Transform3D(basis, radial_dir * radius_m)
