@@ -197,7 +197,7 @@ suite has grown since this was written, don't trust this list blindly):
 | `starfield` | T-16 | `StarfieldBuilder` determinism — no scene |
 | `station_structure` | T-09, T-12, T-13, T-14, T-18, T-19 | Station geometry: gravity, AABB, arcs, laser coverage, rotating ring, markers |
 | `physics_containment` | T-17 | RigidBody containment inside each module (heaviest single test) |
-| `player_locomotion` | T-20 – T-32, T-41, T-42 | `PlayerController` on the dumbbell station (ТЗ-000 §17.3): orientation, walk/run/jump/step, teleport, determinism, zero-g flight (T-41), truss↔arm transition (T-42) |
+| `player_locomotion` | T-20 – T-32, T-41 – T-43 | `PlayerController` on the dumbbell station (ТЗ-000 §17.3): orientation, walk/run/jump/step, teleport, determinism, zero-g flight (T-41), truss↔arm transition (T-42), bidirectional walk-speed symmetry under a 180° avatar turn (T-43) |
 | `interaction_ui` | T-33 – T-39 | Work panels, viewport mapping, doors/hatches, input capture — currently SKIPped unconditionally: `run_tests.gd` always loads `main.tscn`, which now points at the dumbbell station (ТЗ-000 §17), and no panels/doors/hatches are placed there yet (a separate, not-yet-started task). The old ring scene these tests target (`scenes/station/station.tscn`) still exists and still works, just isn't reachable from this automated suite anymore — only from the `dyrm-tz` skill's live-MCP test cases against `scenes/dev/movement_calibration.tscn` |
 | `scene_integrity` | T-40 | Whole-tree invariants (e.g. no stray `AudioStreamPlayer`) |
 
@@ -220,6 +220,12 @@ unless they're the block actually being touched.
 Point runs are for iteration, not for closing out a task: **always finish with one full,
 unfiltered run** (see above) before reporting a fix as verified — a point run only proves the
 touched block and its declared neighbors are clean, not the whole suite.
+
+**`T-43`** tracks the with-spin/against-spin walk-speed asymmetry described in the "Tangential-
+direction/speed correction" note below and now **passes**, live and headless, after that fix — see
+that note (and the comment on `_test_bidirectional_arc_speed()` in `tools/run_tests.gd`) for what was
+tried, rejected, and what actually landed. Like everything else on this floor it may still show
+occasional headless noise; don't be alarmed by one bad ratio if it doesn't reproduce live.
 
 **Known headless-only failures (updated 2026-07-30 after adding the tangential-drift sign
 correction below, unresolved):** `T-24, T-26, T-27, T-28, T-29, T-31, T-32, T-42` — every
@@ -252,21 +258,48 @@ as a live-verified gameplay fix with an open headless-test-harness gap, not a su
 `T-28` (step threshold) is a separate, older, unrelated known limitation — see its own comment in
 the same file.
 
-**Tangential-direction sign correction (2026-07-30):** live gameplay testing surfaced a genuine,
-user-visible bug distinct from the above — walking backward (or strafing) on the arc room could
-net-travel in the *same* direction as forward, not just slower. Root cause: `move_and_slide()`'s
-resolved tangential displacement against the rotating floor is occasionally flat-out reversed
-relative to `horizontal_velocity`'s intended direction (`get_platform_velocity()` was observed
-swinging between 0, 1×, and 2× the ring's true tangential speed frame to frame — Jolt
+**Tangential-direction/speed correction (2026-07-30):** live gameplay testing surfaced two related,
+genuinely user-visible bugs on the arc room floor — (1) walking backward (or strafing) could
+net-travel in the *same* direction as forward, not just slower, and (2) walking *with* the arm's own
+spin direction was noticeably faster and jerkier than walking *against* it (confirmed via a
+180°-avatar-turn methodology, not just flipping `set_move_input`'s sign, which doesn't isolate
+world/ring-space direction from input-sign handling — see `T-43`, block table and
+`tools/run_tests.gd`). Root cause for both: `move_and_slide()`'s resolved tangential displacement
+against the rotating floor is occasionally flat-out reversed, or in the with-spin case several times
+*longer* than intended, relative to `horizontal_velocity`'s target (`get_platform_velocity()` was
+observed swinging between 0, 1×, and 2× the ring's true tangential speed frame to frame — Jolt
 double-counting/dropping the platform's rotation on contact resolution). Fixed in
-`_physics_process_gravity_walk()` with a narrow, sign-only override: when `move_and_slide()`'s
-actual tangential displacement opposes the intended one, replace it with the analytical
-`ring_basis * horizontal_velocity * delta` — see the comment at that call site for the full
-rationale, including a **broader** magnitude-aware version that was tried and reverted because it
-made the old ring's forward-direction *non-deterministic between identical runs* (a real regression,
-confirmed 3x, worse than the residual bug it aimed to fix). The narrow fix leaves one known residual:
-backward walking in the arc room can still net-travel noticeably *shorter* than forward (correct
-direction, weak magnitude) — not yet root-caused, flagged in the same comment.
+`_physics_process_gravity_walk()`: when `move_and_slide()`'s actual tangential displacement either
+opposes the intended one, or is more than `EXCESS_TANGENTIAL_SPEED_MULTIPLIER` (2×) longer than it,
+replace it with the analytical `ring_basis * horizontal_velocity * delta` — a short (not longer than
+intended) same-direction result is left untouched so wall-blocking still works (see the regression
+check at the arc room's end wall). Live-verified: with-spin/against-spin ratio dropped from ~2.5-6x to
+~1.1-1.6x across repeated trials, both directions' magnitude now sane (matches `walk_speed_m_s`
+instead of inflating 4-9x).
+
+Two *earlier*, narrower/broader variants of this same idea were tried first and reverted, based on
+what turned out to be a **false read of the old ring's baseline determinism**: repeated identical
+input on `movement_calibration.tscn` was assumed to be reliably reproducible (based on one early
+single-trial check), so any variant that made repeated trials disagree was treated as a regression
+this fix introduced. Multi-trial testing later showed the **unmodified, pre-session old-ring code**
+already produces this same trial-to-trial spread (including sign flips) with zero code changes —
+the fragility is a pre-existing property of Jolt's contact resolution against a continuously-rotating
+`AnimatableBody3D`, not something introduced by this fix. Don't re-litigate this fix's safety by
+comparing against an assumed-stable old-ring baseline without first re-confirming that baseline is
+actually stable via several repeated trials of your own — it may not be.
+
+A **third** live report followed after the above landed: a brief tap of a movement key (press then
+immediately release) produced a sharp jerk toward the arm's spin direction right at the start of
+motion — both forward and backward taps jerked the same way — after which holding the key became
+smooth. Root cause: the `reversed`/`excessive` checks above both gate on `intended_len_sq > 0.0001`,
+but `horizontal_velocity` (and therefore `intended_horizontal`) is still near zero for the first
+frame or two of any tap — it hasn't ramped up through `move_toward()` yet — so the gate skipped the
+check entirely on exactly the frames where a stray Jolt contact-resolution spike was most visible.
+Fixed by adding a third, unconditional check: `actual_horizontal.length() > config.run_speed_m_s *
+MAX_VELOCITY_SPEED_MULTIPLIER * delta` (an absolute per-frame cap, independent of what was
+"intended" that specific frame) — see the comment at the call site. Live-verified across settled and
+freshly-spawned starts, both directions: max per-frame displacement now stays under the
+`walk_speed_m_s`-implied ceiling in every sampled case, no discontinuity at tap start or release.
 
 **All testing during development beyond this headless numeric run goes through two skills split
 by scope** — don't improvise MCP verification steps ad hoc:

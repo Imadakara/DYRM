@@ -603,6 +603,7 @@ func _run_player_tests(main: Node, station: StationRoot, cfg: StationConfig) -> 
 		await _test_local_velocity_stable(player)
 		await _test_zero_g_flight(player)
 		await _test_transition(player)
+		await _test_bidirectional_arc_speed(player)
 	if _block_enabled(&"interaction_ui"):
 		# Панели/двери/люки (WorkPanel/Door/SpokeHatch) не размещены на
 		# гантелеобразной станции (ТЗ-000 §17) — это отдельная, ещё не начатая
@@ -1093,6 +1094,72 @@ func _test_transition(player: PlayerController) -> void:
 		details += "still grounded after transition back to hub; "
 
 	_check("T-42 begin_transition() swaps module/frame/mode correctly both directions", ok, details)
+
+# T-43 -----------------------------------------------------------------
+## Найдено владельцем проекта (2026-07-30) живой игрой, не автотестом: скорость
+## ходьбы вдоль дуговой комнаты плеча заметно различается в зависимости от
+## направления — предположительно из-за паразитного вклада собственной
+## тангенциальной скорости вращения плеча. НИ ОДИН из T-20…T-42 до этого теста
+## не проверял именно ЭТО: T-24/T-26/T-32 и т.п. используют один и тот же
+## программный ввод (Vector2(0,1)) без разворота АВАТАРА, поэтому "вперёд" и
+## "назад" никогда не сравнивались как одна и та же ФИЗИЧЕСКАЯ (по кольцу)
+## пара направлений — только как противоположный ЗНАК ввода при НЕИЗМЕННОЙ
+## ориентации тела. Разворот через add_look_input(Vector2(180,0)) (а не просто
+## смена знака set_move_input) — намеренно: так проверяется физическое
+## направление хода по кольцу (совпадающее/противоположное её собственному
+## вращению), а не обработка знака ввода как такового — по факту эти два
+## способа могут (и здесь показывают) разное поведение.
+##
+## ИСПРАВЛЕНО (2026-07-30): изначально тест стабильно проваливался на дуговой
+## комнате плеча — ходьба "по вращению" (в сторону собственной тангенциальной
+## скорости плеча в данной точке) давала в 2-6 раз большую дистанцию за то же
+## время ввода, чем "против вращения" (~15-35 м против ~3-14 м за 2 с ввода
+## при walk_speed_m_s=2.0). Тот же класс паразитного контакта Jolt с
+## непрерывно вращающимся AnimatableBody3D, что и в T-24/26/29/32/42, см.
+## комментарий выше _run_player_tests(). Первые два исправления (см. историю
+## правок) сначала казались ломающими детерминизм СТАРОГО кольца станции при
+## повторных прогонах — впоследствии выяснилось, что немодифицированный код
+## старого кольца уже даёт такой же разброс между прогонами без всякой
+## правки (см. CLAUDE.md, "Tangential-direction/speed correction"). Итоговое
+## исправление — в _physics_process_gravity_walk(), правит и разворот
+## тангенциального сдвига, и явный избыток длины (EXCESS_TANGENTIAL_SPEED_MULTIPLIER).
+## Порог допуска ниже (MAX_SPEED_RATIO) не искусственно ослаблен под
+## конкретный результат — оставлен как содержательный регресс-порог.
+func _test_bidirectional_arc_speed(player: PlayerController) -> void:
+	const SETTLE_FRAMES: int = 150
+	const WALK_FRAMES: int = 120
+	const MAX_SPEED_RATIO: float = 1.5
+
+	player.teleport_to_module(&"habitat")
+	for i in range(SETTLE_FRAMES):
+		await physics_frame
+	var pos_a_start: Vector3 = player.position
+	player.set_move_input(Vector2(0.0, 1.0))
+	for i in range(WALK_FRAMES):
+		await physics_frame
+	var pos_a_end: Vector3 = player.position
+	player.set_move_input(Vector2.ZERO)
+	for i in range(30):
+		await physics_frame
+
+	# Разворот АВАТАРА на 180°, не просто инверсия знака ввода — см. класс-
+	# комментарий выше о том, почему это разные проверки.
+	player.add_look_input(Vector2(180.0, 0.0))
+	for i in range(10):
+		await physics_frame
+	var pos_b_start: Vector3 = player.position
+	player.set_move_input(Vector2(0.0, 1.0))
+	for i in range(WALK_FRAMES):
+		await physics_frame
+	var pos_b_end: Vector3 = player.position
+	player.set_move_input(Vector2.ZERO)
+
+	var dist_a: float = pos_a_start.distance_to(pos_a_end)
+	var dist_b: float = pos_b_start.distance_to(pos_b_end)
+	var ratio: float = maxf(dist_a, dist_b) / maxf(minf(dist_a, dist_b), 0.001)
+	var ok: bool = ratio <= MAX_SPEED_RATIO
+	_check("T-43 walk speed symmetric under 180-degree avatar turn on arc room floor (<=%.1fx)" % MAX_SPEED_RATIO, ok,
+			"dist_before_turn=%.4f dist_after_turn=%.4f ratio=%.4f" % [dist_a, dist_b, ratio])
 
 # T-33 -----------------------------------------------------------------
 func _test_surface_to_viewport(station: StationRoot) -> void:

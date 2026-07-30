@@ -59,6 +59,12 @@ const MAX_FLICKER_AIRBORNE_FRAMES: int = 6
 ## сумма — не более ~4,1 м/с), но далеко отсекает наблюдавшиеся выбросы
 ## (13-26 м/с при беге 2,0-3,6 м/с).
 const MAX_VELOCITY_SPEED_MULTIPLIER: float = 2.0
+## Порог для отдельной поправки "по вращению плеча" в _physics_process_gravity_walk()
+## (см. её комментарий): move_and_slide() иногда даёт тангенциальный сдвиг в
+## ТУ ЖЕ сторону, что и намерение, но в разы длиннее — намеренно широкий
+## множитель, не любое "длиннее намеренного", чтобы не задеть обычный шум
+## контакта Jolt.
+const EXCESS_TANGENTIAL_SPEED_MULTIPLIER: float = 2.0
 
 ## Гравитационная ходьба (прежняя механика ТЗ-100, кольцо/плечо) или свободный
 ## полёт в невесомости (неподвижный ствол гантелеобразной станции, ТЗ-000
@@ -327,7 +333,20 @@ func _physics_process_gravity_walk(delta: float) -> void:
 		var drift: Vector3 = global_position - pos_before_slide
 		var actual_horizontal: Vector3 = drift - _up_global * drift.dot(_up_global)
 		var intended_horizontal: Vector3 = ring_basis * horizontal_velocity * delta
-		if intended_horizontal.length_squared() > 0.0001 and actual_horizontal.dot(intended_horizontal) < 0.0:
+		var intended_len_sq: float = intended_horizontal.length_squared()
+		# Абсолютный потолок за кадр — НЕ зависит от intended_horizontal, в
+		# отличие от reversed/excessive ниже. Найдено эмпирически (2026-07-30):
+		# на первом кадре (двух) после начала ввода horizontal_velocity ещё не
+		# успела разогнаться через move_toward() (её длина близка к нулю), из-за
+		# чего intended_horizontal тоже мала, охрана "intended_len_sq > 0.0001"
+		# пропускает проверку reversed/excessive вовсе — и одиночный паразитный
+		# скачок Jolt в сторону вращения плеча (что вперёд, что назад — оба
+		# конца тапа) проходит НЕисправленным на этом самом первом кадре. Живой
+		# отчёт: короткое нажатие вперёд/назад даёт резкое смещение сразу после
+		# нажатия (в сторону вращения плеча в обоих случаях), дальше — плавно.
+		var max_reasonable_len: float = config.run_speed_m_s * MAX_VELOCITY_SPEED_MULTIPLIER * delta
+		var excessive_absolute: bool = actual_horizontal.length() > max_reasonable_len
+		if excessive_absolute or (intended_len_sq > 0.0001 and (actual_horizontal.dot(intended_horizontal) < 0.0 or actual_horizontal.length_squared() > intended_len_sq * EXCESS_TANGENTIAL_SPEED_MULTIPLIER * EXCESS_TANGENTIAL_SPEED_MULTIPLIER)):
 			global_position += intended_horizontal - actual_horizontal
 		_settle_step_up(ring_basis)
 	else:
