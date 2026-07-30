@@ -2,8 +2,10 @@
 ## (см. отчёт о ревизии конфигурации 0.1.1, второе уточнение): четверть-секция
 ## прямоугольного тора, радиусы [inner_radius_m, outer_radius_m], дуга
 ## angle_span_deg (60° по уточнению) вокруг оси вращения, гранёный профиль
-## пола/потолка из arc_segment_count хорд (6-8 по уточнению — не гладкая
-## кривая, как у труб (segment_count=16), а читаемый глазом ломаный профиль).
+## пола/потолка из arc_segment_count хорд — то же число (16) и та же схема
+## коллизии, что у старого (доказанно рабочего) кольца станции, см.
+## _build_arc_collision(); отказались от более ранней идеи "6-8 сегментов,
+## читаемый глазом гранёный профиль" ради совпадения с рабочей конфигурацией.
 ## Пол — дальняя (outer_radius_m) грань, потолок — ближняя (inner_radius_m),
 ## где ровно по центру дуги (симметрично) расположен Connector_Corridor —
 ## точка стыковки с коридором (station_connector.gd/station_docking.gd).
@@ -18,23 +20,32 @@ extends StationModule
 
 @export var dumbbell_config: DumbbellStationConfig
 ## Радиус потолка — ближняя к оси вращения грань, где коннектор коридора.
-@export var inner_radius_m: float = 14.0
+## 50 м, не исходные 14 м первой ревизии: тот же радиус пола (60 м, см.
+## outer_radius_m) и та же глубина комнаты (10 м), что и раньше — только
+## сдвинутые на радиус старого (доказанно рабочего) кольца станции. Это
+## СОБСТВЕННОЕ поле модуля, НЕ читается из dumbbell_config.arc_room_inner_radius_m
+## (то поле не синхронизировано с этим намеренно, см. его комментарий в
+## dumbbell_station_config.gd) — держать оба значения в согласии вручную при
+## следующей правке.
+@export var inner_radius_m: float = 50.0
 ## Радиус пола — дальняя грань, здесь действует центробежная "гравитация".
-@export var outer_radius_m: float = 24.0
+## 60 м — тот же радиус, что у старого (доказанно рабочего) кольца станции
+## (StationConfig.ring_radius_m) и что и в station_dumbbell_rotator.tres
+## (ring_radius_m, задаёт угловую скорость плеча) — при меньшем радиусе (24 м
+## первой ревизии) угловая скорость плеча заметно выше при том же g, и физика
+## ходьбы разваливалась (см. отчёт по адаптации ТЗ-100 под ТЗ-000 §17.3).
+@export var outer_radius_m: float = 60.0
 ## Половина ширины отсека вдоль главной оси станции ("приплюснутое" измерение).
 @export var axial_half_width_m: float = 4.0
 @export var angle_span_deg: float = 60.0
-## Число гранёных сегментов дуги пола/потолка (6-8 по уточнению автора —
-## нечётное обязательно: дуга симметрична вокруг локального 0° (см.
-## _arc_room_dir()), и при ЧЁТНОМ числе сегментов граница ровно двух соседних
-## сегментов приходится точно на 0° — а это именно та точка, куда падает игрок
-## при вертикальном падении от точки спавна (она тоже на 0°). Стык двух
-## тонких (0.3 м) коробок-коллайдеров ровно под точкой контакта даёт
-## неоднозначную/некорректную нормаль столкновения (эмпирически: до ~60° от
-## ожидаемой радиальной), из-за чего is_on_floor() никогда не срабатывает и
-## игрок бесконечно проваливается/скользит вместо приземления. Нечётное число
-## сегментов кладёт СЕРЕДИНУ центрального сегмента на 0°, а не его границу.
-@export var arc_segment_count: int = 7
+## Число гранёных сегментов дуги пола/потолка/стен — ОДНО и то же значение
+## для всех поверхностей И для видимой геометрии, буквально как у старого
+## (доказанно рабочего) кольца: там config.arc_segment_count=16 на 45°-модуль
+## (~2.8°/сегмент) — то же самое, независимо от пробовавшихся здесь ранее
+## других значений/раздельных констант для пола и стен, ничего не решивших
+## (см. историю правок _build_arc_collision()). Держим то же число, что и
+## там, а не переизобретаем.
+@export var arc_segment_count: int = 16
 
 func _build_geometry() -> void:
 	_collision_root.transform = Transform3D.IDENTITY
@@ -70,83 +81,33 @@ func _build_geometry() -> void:
 	_build_arc_collision(angle_span_rad)
 	_build_arc_interior_lights(angle_span_rad)
 
-## Пол/потолок/2 боковые стены — тонкие слои-коллайдеры на хорду-сегмент
-## (как и CylindricalStationModule/StationModule), плюс 2 торцевые стены,
-## закрывающие угловые пределы дуги (комната самостоятельная, не часть
-## непрерывного кольца). Названа не так, как одноимённый метод в StationModule
-## (_build_collision) — сигнатуры разные, GDScript требует их совпадения при
-## переопределении метода с тем же именем.
-## Запас поверх геометрической длины хорды для каждого коллайдера-сегмента
-## СТЕН (не пола/потолка — см. ниже) — соседние сегменты слегка ЗАХОДЯТ друг
-## на друга по касательной, а не стыкуются встык. Не влияет на видимую
-## геометрию (мешу строит build_arc_room_wall_mesh() отдельно, без этого
-## запаса) — только на физику.
-const ARC_COLLISION_OVERLAP_FACTOR: float = 1.2
-## См. использование в _build_arc_collision() — толщина ТОЛЬКО пола/потолка,
-## сильно больше общего wall_thickness_m.
-const ARC_FLOOR_THICKNESS_M: float = 3.0
-
+## Пол/потолок/2 боковые стены — тонкие слои-коллайдеры на хорду-сегмент,
+## буквально та же схема, что и у StationModule._build_collision() (старое
+## кольцо): ОДНА общая длина хорды (посчитанная по среднему радиусу,
+## mid_radius, тем же приёмом, что и там — не отдельно для пола/потолка/стен),
+## ОДНА толщина (dumbbell_config.wall_thickness_m — тот же смысл, что и
+## WALL_THICKNESS_M там), ОДНО число сегментов (arc_segment_count) без
+## запаса/нахлёста. Плюс 2 торцевые стены, закрывающие угловые пределы дуги
+## (комната самостоятельная, не часть непрерывного кольца — там аналога нет).
+## Названа не так, как одноимённый метод в StationModule (_build_collision) —
+## сигнатуры разные, GDScript требует их совпадения при переопределении
+## метода с тем же именем.
 func _build_arc_collision(angle_span_rad: float) -> void:
 	var mid_radius: float = (inner_radius_m + outer_radius_m) * 0.5
 	var wt: float = dumbbell_config.wall_thickness_m
 	var axial_width: float = axial_half_width_m * 2.0
+	var chord_len: float = DumbbellMeshBuilder.arc_room_chord_length(mid_radius, angle_span_rad, arc_segment_count)
 
-	# Пол и потолок — ОДНА коробка на весь угловой диапазон комнаты
-	# (arc_segment_count=1 в вызовах ниже — не значение поля этого модуля,
-	# оно по-прежнему используется для видимой геометрии, гранёной на
-	# arc_segment_count граней), а не по сегменту на грань, как раньше.
-	# Гранёный пол/потолок из нескольких тонких (0.3 м) коробок-сегментов имел
-	# внутренние стыки, о которые Jolt время от времени спотыкался: при подходе
-	# под острым углом на границе двух соседних коробок репортилась
-	# некорректная нормаль столкновения (эмпирически: до ~60-90° от ожидаемой
-	# радиальной) — is_on_floor() не срабатывал, и накопленная гравитационная
-	# скорость раз за разом "вкладывалась" в паразитное касательное скольжение
-	# вместо гашения об пол, разгоняя игрока через всю комнату (см. отчёт по
-	# адаптации ТЗ-100 под гантелеобразную станцию, ТЗ-000 §17.3). Небольшой
-	# запас по ширине соседних сегментов (ARC_COLLISION_OVERLAP_FACTOR) не
-	# устранял проблему полностью — а несколько сегментов означают несколько
-	# стыков в принципе. Одна плоская коробка на весь пол физически НЕ
-	# идеально повторяет кривизну видимой (гранёной) геометрии — по центру
-	# дуги (0°, там же точка спавна) совпадает точно, у угловых пределов
-	# (±angle_span_rad/2) даёт зазор до R·(1-cos(angle_span_rad/2)) — у текущих
-	# констант (24 м, 60°) это ~3,2 м, там, где пол визуально изгибается
-	# сильнее всего, к тому же на границе с торцевой стеной. Компромисс,
-	# выбранный сознательно ради того, чтобы пол вообще держал персонажа: без
-	# внутренних стыков у одной коробки нет и точек, о которые Jolt может
-	# споткнуться, — а именно это ломало ходьбу совсем, не просто неточно.
-	#
-	# Толщина пола/потолка — ARC_FLOOR_THICKNESS_M, а не тонкий общий
-	# wall_thickness_m: игрок стоит ИМЕННО на этой границе, и
-	# player_controller.gd каждый кадр силой возвращает его радиус ровно на
-	# outer_radius_m (радиальная привязка) — при тонкой (0.3 м) плите
-	# наблюдалось, что после нескольких таких мелких коррекций Jolt в какой-то
-	# момент "теряет" контакт совсем: игрок проваливается сквозь плиту за один
-	# кадр, is_on_floor() навсегда остаётся false, и накопленная
-	# гравитационная скорость без всякого сопротивления разгоняет его в
-	# открытое пространство за пределами станции (обнаружено эмпирически при
-	# адаптации ТЗ-100 под гантелеобразную станцию, ТЗ-000 §17.3). Толстая
-	# подложка даёт мелкой численной погрешности куда деться, не пробивая
-	# коллизию насквозь; видимый пол (build_arc_room_wall_mesh) не меняется —
-	# толщина уходит НАРУЖУ от него, в сторону корпуса станции.
-	var full_chord_len: float = DumbbellMeshBuilder.arc_room_chord_length(outer_radius_m, angle_span_rad, 1)
 	var floor_shape := BoxShape3D.new()
-	floor_shape.size = Vector3(full_chord_len, ARC_FLOOR_THICKNESS_M, axial_width)
-	_add_arc_collision_layer(outer_radius_m + ARC_FLOOR_THICKNESS_M * 0.5, floor_shape, angle_span_rad, 0.0, 1)
+	floor_shape.size = Vector3(chord_len, wt, axial_width)
+	_add_arc_collision_layer(outer_radius_m + wt * 0.5, floor_shape, angle_span_rad)
 
-	var ceiling_chord_len: float = DumbbellMeshBuilder.arc_room_chord_length(inner_radius_m, angle_span_rad, 1)
 	var ceiling_shape := BoxShape3D.new()
-	ceiling_shape.size = Vector3(ceiling_chord_len, ARC_FLOOR_THICKNESS_M, axial_width)
-	_add_arc_collision_layer(inner_radius_m - ARC_FLOOR_THICKNESS_M * 0.5, ceiling_shape, angle_span_rad, 0.0, 1)
+	ceiling_shape.size = Vector3(chord_len, wt, axial_width)
+	_add_arc_collision_layer(inner_radius_m - wt * 0.5, ceiling_shape, angle_span_rad)
 
-	# Боковые стены — по-прежнему гранёные (по arc_segment_count), с запасом
-	# по ширине: игрок об них не "стоит" (is_on_floor() тут ни при чём),
-	# поэтому тот же класс стыковой проблемы здесь не приводит к каскадному
-	# срыву — а MAX_VELOCITY_SPEED_MULTIPLIER в player_controller.gd уже
-	# страхует от одиночных всплесков скорости при боковом касании.
-	var wall_chord_len: float = DumbbellMeshBuilder.arc_room_chord_length(mid_radius, angle_span_rad, arc_segment_count) \
-			* ARC_COLLISION_OVERLAP_FACTOR
 	var wall_shape := BoxShape3D.new()
-	wall_shape.size = Vector3(wall_chord_len, outer_radius_m - inner_radius_m, wt)
+	wall_shape.size = Vector3(chord_len, outer_radius_m - inner_radius_m, wt)
 	_add_arc_collision_layer(mid_radius, wall_shape, angle_span_rad, axial_half_width_m)
 	_add_arc_collision_layer(mid_radius, wall_shape, angle_span_rad, -axial_half_width_m)
 
@@ -159,13 +120,9 @@ func _build_arc_collision(angle_span_rad: float) -> void:
 				inner_radius_m, outer_radius_m, sign_i * angle_span_rad * 0.5)
 		_collision_root.add_child(cs)
 
-## segment_count_override — по умолчанию arc_segment_count (гранёные боковые
-## стены), но пол/потолок вызывают с 1 (одна коробка на весь угловой
-## диапазон, без внутренних стыков — см. класс-комментарий _build_arc_collision()).
 func _add_arc_collision_layer(radius_m: float, shape: BoxShape3D, angle_span_rad: float,
-		z_offset_m: float = 0.0, segment_count_override: int = -1) -> void:
-	var count: int = segment_count_override if segment_count_override > 0 else arc_segment_count
-	for local_transform in DumbbellMeshBuilder.arc_room_collision_transforms(radius_m, angle_span_rad, count):
+		z_offset_m: float = 0.0) -> void:
+	for local_transform in DumbbellMeshBuilder.arc_room_collision_transforms(radius_m, angle_span_rad, arc_segment_count):
 		var cs := CollisionShape3D.new()
 		cs.shape = shape
 		var t: Transform3D = local_transform

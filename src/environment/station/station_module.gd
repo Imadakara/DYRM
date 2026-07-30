@@ -45,6 +45,27 @@ const WALL_THICKNESS_M: float = 0.3
 func _ready() -> void:
 	_build_geometry()
 
+## Заставляет PhysicsServer3D зарегистрировать _collision_root заново с нуля —
+## вызывать ПОСЛЕ того, как StationDocking.dock() переставил этот модуль на
+## финальную позицию (station_dumbbell_assembly.gd). Гипотеза: _collision_root
+## (AnimatableBody3D, sync_to_physics) уже зарегистрирован физикой в момент
+## _build_geometry()/_ready() — на транспорте, близком к тождеству, до
+## докинга. Докинг переставляет ancestor'а на финальную позицию (обычно
+## десятки метров) ОДНИМ кадром до первого _physics_process() — Jolt читает
+## это как аномально огромную скорость этого физического тела за один шаг и,
+## похоже, не забывает это полностью даже после многих последующих кадров
+## нормального (маленького) движения — экспериментально подтверждено: тот же
+## код (_physics_process_gravity_walk(), тот же базовый класс) стабилен на
+## старом кольце (модули НИКОГДА не переставляются после _ready()) и
+## катастрофически нестабилен на дуговой комнате плеча гантели (переставляется
+## докингом), при идентичном радиусе/угловой скорости не при делах. remove_child
+## + add_child пересоздают физическое тело в PhysicsServer3D с нуля, на УЖЕ
+## финальной позиции — без этой истории.
+func rebuild_collision_registration() -> void:
+	var parent: Node = _collision_root.get_parent()
+	parent.remove_child(_collision_root)
+	parent.add_child(_collision_root)
+
 ## _collision_root (AnimatableBody3D) держит локальный transform строго
 ## Transform3D.IDENTITY относительно себя же — вся геометрия коллизии,
 ## построенная _build_collision()/_build_arc_collision() у наследников, уже

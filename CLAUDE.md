@@ -221,6 +221,53 @@ Point runs are for iteration, not for closing out a task: **always finish with o
 unfiltered run** (see above) before reporting a fix as verified — a point run only proves the
 touched block and its declared neighbors are clean, not the whole suite.
 
+**Known headless-only failures (updated 2026-07-30 after adding the tangential-drift sign
+correction below, unresolved):** `T-24, T-26, T-27, T-28, T-29, T-31, T-32, T-42` — every
+`player_locomotion` test that actually walks/runs/jumps on the arm's rotating floor — fail
+specifically under `godot --headless --script res://tools/run_tests.gd`, but **the specific subset
+that fails now varies run to run** (confirmed empirically: three consecutive full runs on identical
+code gave three different pass/fail patterns for T-25/26/27/29/31 — e.g. T-25's radius drift read
+2461m on one run and passed cleanly on the next, same binary). This contradicts the earlier note in
+this section claiming "deterministic, exactly-repeating numbers" — that was true before the fix
+below was added and is **no longer accurate**; treat any single headless run's failing-test list as
+one sample from a noisy distribution, not a stable fingerprint, and re-run at least 2-3 times before
+concluding a code change fixed or broke a specific numbered test in this family. `T-25` (stand-still)
+passes on most runs — don't be alarmed by an occasional large radius-drift number, but don't declare
+it "fixed" from one green run either. The same mechanic (`GRAVITY_WALK` in
+`player_controller.gd`, physics-based `move_and_slide()`/`is_on_floor()`) is confirmed stable
+through extensive live `godot-runtime` MCP testing — standing, walking, running, repeated
+stop-start cycles, radius held at 60.00±0.02m, matching the old ring's quality. One contributing
+detail found live (not headless-specific — reproduced on both the old ring and the arc room):
+`is_on_floor()` takes ~50 physics frames (~0.8s) to first read `true` after every
+`teleport_to_module()`, even standing still exactly on the floor. In live play this is harmless —
+`is_on_floor()` starts flickering `true` often enough afterward for the radial pin (see
+`_physics_process_gravity_walk()`) to keep firing and hold the radius. In the *headless* T-24 run,
+`is_on_floor()` never once reads `true` in 300 frames (`grounded_bad_frames=300/300`) — not merely
+"a slower first grounding" but a total absence of the flicker seen live — so the pin never fires
+and the radius drifts freely. Whether that 100%-headless-ungrounded state is the same underlying
+mechanism as the ~50-frame live delay, just worse, or a distinct bug, is **not established** — see
+the comment block above `_run_player_tests()` in `tools/run_tests.gd` for what was investigated and
+ruled out (docking registration, floor segmentation, epoch jump, T-23 ordering) before treating this
+as a live-verified gameplay fix with an open headless-test-harness gap, not a suspected regression.
+`T-28` (step threshold) is a separate, older, unrelated known limitation — see its own comment in
+the same file.
+
+**Tangential-direction sign correction (2026-07-30):** live gameplay testing surfaced a genuine,
+user-visible bug distinct from the above — walking backward (or strafing) on the arc room could
+net-travel in the *same* direction as forward, not just slower. Root cause: `move_and_slide()`'s
+resolved tangential displacement against the rotating floor is occasionally flat-out reversed
+relative to `horizontal_velocity`'s intended direction (`get_platform_velocity()` was observed
+swinging between 0, 1×, and 2× the ring's true tangential speed frame to frame — Jolt
+double-counting/dropping the platform's rotation on contact resolution). Fixed in
+`_physics_process_gravity_walk()` with a narrow, sign-only override: when `move_and_slide()`'s
+actual tangential displacement opposes the intended one, replace it with the analytical
+`ring_basis * horizontal_velocity * delta` — see the comment at that call site for the full
+rationale, including a **broader** magnitude-aware version that was tried and reverted because it
+made the old ring's forward-direction *non-deterministic between identical runs* (a real regression,
+confirmed 3x, worse than the residual bug it aimed to fix). The narrow fix leaves one known residual:
+backward walking in the arc room can still net-travel noticeably *shorter* than forward (correct
+direction, weak magnitude) — not yet root-caused, flagged in the same comment.
+
 **All testing during development beyond this headless numeric run goes through two skills split
 by scope** — don't improvise MCP verification steps ad hoc:
 

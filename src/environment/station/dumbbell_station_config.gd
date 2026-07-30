@@ -43,16 +43,23 @@ extends Resource
 ## по центру дуги — симметрично), arc_room_outer_radius_m — пол (дальше от
 ## оси, целевая гравитация target_gravity_g). arc_room_axial_half_width_m —
 ## половина "приплюснутого" измерения вдоль главной оси станции.
-@export var arc_room_inner_radius_m: float = 14.0
-@export var arc_room_outer_radius_m: float = 24.0
+## Радиус пола (60 м) — тот же, что и у старого (доказанно рабочего) кольца
+## станции (StationConfig.ring_radius_m), не исходные 24 м первой ревизии
+## дуговой комнаты: при 24 м угловая скорость плеча заметно выше (тот же g,
+## меньший радиус), и физика ходьбы разваливалась — см. отчёт по адаптации
+## ТЗ-100 под ТЗ-000 §17.3. arc_room_inner_radius_m держит ту же глубину
+## комнаты (10 м), просто сдвинутую на новый радиус.
+@export var arc_room_inner_radius_m: float = 50.0
+@export var arc_room_outer_radius_m: float = 60.0
 @export var arc_room_axial_half_width_m: float = 4.0
 @export var arc_room_angle_span_deg: float = 60.0
-## Число гранёных сегментов дуги пола/потолка (6-8 по уточнению — рёбра
-## должны читаться на глаз, а не давать гладкую дугу, как у труб). Не
+## Число гранёных сегментов дуги пола/потолка/стен — то же самое (16), что и
+## StationConfig.arc_segment_count у старого кольца станции, не отдельное
+## "6-8 сегментов ради читаемого глазом профиля" первой ревизии. Не
 ## используется напрямую (ArcRoomStationModule несёт собственное
-## arc_segment_count, см. его комментарий про чётность/нечётность) — держим
-## значение synced ради непротиворечивости конфига, а не по необходимости.
-@export var arc_room_segment_count: int = 7
+## arc_segment_count) — держим значение synced ради непротиворечивости
+## конфига, а не по необходимости.
+@export var arc_room_segment_count: int = 16
 
 ## Целевая гравитация на полу жилого/рабочего модуля, в g.
 @export var target_gravity_g: float = 0.3

@@ -110,7 +110,7 @@ module_id = &"habitat"
 display_name = "Жилой модуль"
 
 [node name="Transition" parent="RotatingRing/HabitatModule" instance=ExtResource("17")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 59, 1.5)
 target_module_id = &"hub"
 prompt_text = "Перейти в модуль-втулку"
 
@@ -122,7 +122,7 @@ module_id = &"work"
 display_name = "Рабочий модуль"
 
 [node name="Transition" parent="RotatingRing/WorkModule" instance=ExtResource("17")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 23, 1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 59, 1.5)
 target_module_id = &"hub"
 prompt_text = "Перейти в модуль-втулку"
 

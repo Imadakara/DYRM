@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-ring_radius_m = 24.0
+ring_radius_m = 60.0
 deck_height_m = 3.5
 tube_width_m = 7.0
 arc_segment_count = 16

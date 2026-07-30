@@ -108,6 +108,13 @@ var _last_physical_move_input: Vector2 = Vector2.ZERO
 var _last_physical_vertical: float = 0.0
 var _last_physical_run: bool = false
 var _pending_jump: bool = false
+## Сколько кадров ещё держим _pending_jump после trigger_jump() — тот же
+## MAX_FLICKER_AIRBORNE_FRAMES запас, что и у мигания опоры (is_on_floor()
+## регулярно ложно false даже на ровной ходьбе, см. отчёт): без буфера прыжок,
+## пришедшийся ровно на такой кадр, терялся бы безвозвратно (_pending_jump
+## сбрасывался в конце кадра независимо от того, был ли он реально
+## использован) — обнаружено эмпирически (прыжок не срабатывал вовсе).
+var _jump_buffer_frames_left: int = 0
 var _yaw_delta_accum_rad: float = 0.0
 var _prev_right: Vector3 = Vector3.RIGHT
 var _has_spawned: bool = false
@@ -231,13 +238,25 @@ func _physics_process_gravity_walk(delta: float) -> void:
 	else:
 		horizontal_velocity = horizontal_velocity.move_toward(target_horizontal, config.accel_air_m_s2 * delta)
 
+	if _pending_jump and _jump_buffer_frames_left > 0:
+		_jump_buffer_frames_left -= 1
 	if _pending_jump and is_on_floor():
 		v_up = config.jump_velocity_m_s
-	elif is_on_floor():
-		v_up = minf(v_up, 0.0)
+		_pending_jump = false
+	elif _pending_jump and _jump_buffer_frames_left <= 0:
+		_pending_jump = false
+	elif is_on_floor() and v_up <= 0.0:
+		# `and v_up <= 0.0`, не голый is_on_floor(): то же мигание опоры, что
+		# ломало ходьбу (см. отчёт выше), портило и прыжок — одиночный ложный
+		# is_on_floor()=true ПОСРЕДИ подъёма (v_up ещё положительный, игрок
+		# явно удаляется от пола) через minf(v_up, 0.0) обнулял высоту прыжка
+		# почти сразу после старта (обнаружено эмпирически: прыжок «почти не
+		# заметен»). Физически нельзя одновременно покоиться на полу и
+		# удаляться от него — контакт, отмеченный при v_up>0, заведомо ложный,
+		# и гравитация должна продолжать действовать как обычно (ветка else).
+		v_up = 0.0
 	else:
 		v_up -= g_local.length() * delta
-	_pending_jump = false
 
 	local_velocity = horizontal_velocity + up_local * v_up
 
@@ -248,30 +267,32 @@ func _physics_process_gravity_walk(delta: float) -> void:
 	var no_intentional_move: bool = horizontal_velocity.length() < REST_VELOCITY_EPS_M_S
 	var recent_floor_contact: bool = _airborne_streak_frames <= MAX_FLICKER_AIRBORNE_FRAMES
 	var was_resting: bool = not _stepped_up_this_frame and no_intentional_move and recent_floor_contact
+	# get_platform_velocity() — штатная схема старого кольца станции (вычесть
+	# перед move_and_slide(), прибавить обратно после) — при полностью
+	# совпадающей теперь конфигурации пола/радиуса плеча (см. правки
+	# dumbbell_station_config.gd/arc_room_station_module.gd) была ПРОВЕРЕНА
+	# ЕЩЁ РАЗ и всё равно даёт дрейф в покое (~18 м за 5 с — тот же класс
+	# симптома, что документируют TC-ТЗ100-R1/R6 для caмого старого кольца,
+	# просто здесь заметнее) и порчу скорости при ходьбе — то есть
+	# ненадёжность get_platform_velocity() для CharacterBody3D, стоящего на
+	# непрерывно вращающемся AnimatableBody3D, судя по всему присуща самому
+	# этому механизму Godot/Jolt в такой конфигурации, а не была замаскирована
+	# несовпадением геометрии. Вместо неё — совмещение только через
+	# Node3D-иерархию (игрок и так ребёнок RotatingRing, вращается вместе с
+	# плечом БЕСПЛАТНО, без физики): `horizontal_velocity`, посчитанный ВЫШЕ
+	# через move_toward() к target_horizontal/config.accel_air_m_s2, — то, чего
+	# игрок реально хотел этим кадром, не зависит от get_platform_velocity()
+	# вовсе; move_and_slide() при этом остаётся полноценно ответственным за
+	# столкновение со стенами (реальное перемещение позиции обрабатывается им
+	# как обычно) — просто не единственный источник ЗНАЧЕНИЯ скорости,
+	# которое переживает кадр.
 	var pos_before_slide: Vector3 = global_position
-	velocity = ring_basis * local_velocity - get_platform_velocity()
+	velocity = ring_basis * local_velocity
 	move_and_slide()
-	local_velocity = ring_basis.inverse() * (velocity - get_platform_velocity())
+	local_velocity = horizontal_velocity + up_local * v_up
 	var max_sane_speed_m_s: float = config.run_speed_m_s * MAX_VELOCITY_SPEED_MULTIPLIER
 	if local_velocity.length() > max_sane_speed_m_s:
 		local_velocity = local_velocity.normalized() * max_sane_speed_m_s
-	# Переход "в воздухе -> на полу" в этом самом кадре: get_platform_velocity()
-	# ДО move_and_slide() (контакта ещё не было — вернул ~0) и ПОСЛЕ (контакт
-	# только что образовался — вернул реальную тангенциальную скорость плеча,
-	# ω·r) не совпадают, а компенсация выше (velocity = ...- get_platform_velocity()
-	# ... local_velocity = ...(velocity - get_platform_velocity())) устроена
-	# так, что доверяет одному и тому же значению по обе стороны вызова —
-	# на этом переходе почти вся скорость платформы (~7-8 м/с при радиусе 24 м)
-	# протекает в local_velocity как паразитный тангенциальный импульс,
-	# сбрасывающий игрока с пола, который тот же кадр только что нащупал (см.
-	# отчёт: диагностика по кадрам подтвердила ~7.2 м/с точно в момент первого
-	# контакта, velocity при этом честный ноль). Физически на приземлении
-	# относительная тангенциальная скорость к полу и обязана быть нулевой
-	# (прилипание к вращающейся платформе, то же допущение, что и в was_resting
-	# ниже) — обнуляем её явно на этом переходе, не полагаясь на разность
-	# get_platform_velocity() по разные стороны одного move_and_slide().
-	if is_on_floor() and not _was_grounded:
-		local_velocity = up_local * local_velocity.dot(up_local)
 	if was_resting:
 		# Откатываем ТОЛЬКО тангенциальную (не вдоль up) составляющую сдвига —
 		# именно она и есть паразитный дрейф от разрешения контакта с
@@ -281,6 +302,34 @@ func _physics_process_gravity_walk(delta: float) -> void:
 		var radial_drift: Vector3 = _up_global * drift.dot(_up_global)
 		global_position -= (drift - radial_drift)
 		local_velocity = up_local * local_velocity.dot(up_local)
+	elif not _stepped_up_this_frame:
+		# Тот же класс паразитного контакта с вращающимся полом, что и было —
+		# при АКТИВНОЙ ходьбе (не в покое) обнаружен эмпирически ЕГО худший
+		# случай: move_and_slide() иногда даёт тангенциальную составляющую
+		# сдвига, направленную ПРОТИВОПОЛОЖНО намеренному горизонтальному вводу
+		# (нажатие "назад" двигало игрока в ту же сторону, что и "вперёд" — не
+		# медленнее из-за стены, а буквально в другую сторону). get_platform_velocity()
+		# в этот момент нестабилен между 0 и кратными истинной тангенциальной
+		# скорости плеча (0, ×1, ×2) — Jolt дублирует/теряет вклад вращения
+		# пола при разрешении контакта. Правим ТОЛЬКО явный разворот (скалярное
+		# произведение факта и намерения < 0), не любое несовпадение длины —
+		# короткий, но в ТУ ЖЕ сторону сдвиг (реальная стена) не трогаем,
+		# иначе сломается блокировка стенами (см. регресс-проверку у торцевой
+		# стены дуговой комнаты). Более широкая версия (заменять тангенциальный
+		# сдвиг на аналитический ВСЕГДА, когда он короче намеренного — не
+		# только при развороте) была опробована и ОТКЛОНЕНА: на старом кольце
+		# при повторных прогонах с ИДЕНТИЧНЫМ вводом даёт разное, нестабильное
+		# направление между попытками (было устойчиво воспроизводимо, стало
+		# хаотично) — регрессия хуже устраняемого симптома. Слабая (заметно
+		# короче намеренной) дистанция при ходьбе "назад" в дуговой комнате
+		# плеча — известное, ещё не устранённое остаточное проявление того же
+		# паразитного контакта, не задача этой правки.
+		var drift: Vector3 = global_position - pos_before_slide
+		var actual_horizontal: Vector3 = drift - _up_global * drift.dot(_up_global)
+		var intended_horizontal: Vector3 = ring_basis * horizontal_velocity * delta
+		if intended_horizontal.length_squared() > 0.0001 and actual_horizontal.dot(intended_horizontal) < 0.0:
+			global_position += intended_horizontal - actual_horizontal
+		_settle_step_up(ring_basis)
 	else:
 		_settle_step_up(ring_basis)
 
@@ -310,7 +359,16 @@ func _physics_process_gravity_walk(delta: float) -> void:
 	_update_footstep(horizontal_velocity, is_on_floor(), delta)
 	_update_grounded_signal(is_on_floor())
 	if _camera != null:
-		_camera.update_bob(horizontal_velocity.length(), is_on_floor(), delta)
+		# Не сырой is_on_floor() — он мигает false на несколько кадров подряд
+		# даже во время ровной ходьбы (тот же паразитный контакт с вращающимся
+		# полом, что и выше), и update_bob() раньше реагировал на это мгновенным
+		# сбросом позиции камеры в ноль и обратно каждое мигание — источник
+		# заметной дёрганности камеры при ходьбе, отдельный от самого дрейфа
+		# позиции. Тот же запас на мигание, что уже используется для was_resting
+		# (MAX_FLICKER_AIRBORNE_FRAMES) — камера не должна дёргаться от кадров
+		# опоры короче реального прыжка/падения.
+		var bob_grounded: bool = _airborne_streak_frames <= MAX_FLICKER_AIRBORNE_FRAMES
+		_camera.update_bob(horizontal_velocity.length(), bob_grounded, delta)
 
 ## Свободный полёт в невесомости неподвижного ствола (ТЗ-000 §17.3 — этой
 ## механики не существовало вообще, не адаптация ходьбы). Тяга — по осям
@@ -526,6 +584,7 @@ func trigger_jump() -> void:
 	if _is_input_suppressed():
 		return
 	_pending_jump = true
+	_jump_buffer_frames_left = MAX_FLICKER_AIRBORNE_FRAMES
 
 func trigger_interact() -> void:
 	if _interaction_probe == null:
@@ -619,6 +678,12 @@ func teleport_to_module(module_id: StringName) -> void:
 	# места) — тот же паразитный тангенциальный импульс от вращения плеча
 	# просочился бы необнаруженным именно в этом случае.
 	_was_grounded = false
+	# Не переносим "хвост" прыжка через телепорт — целевой модуль может быть
+	# невесомым (ZERO_G_FLY), где _pending_jump вообще не смотрится, а если
+	# он останется true, следующий gravity-walk модуль получит прыжок без
+	# нажатия игрока.
+	_pending_jump = false
+	_jump_buffer_frames_left = 0
 
 	# Игрок реально переезжает между DespunTruss (неподвижный ствол) и
 	# RotatingRing (вращающееся плечо) — не только математически, физическим
