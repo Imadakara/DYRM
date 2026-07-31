@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "godot-docs": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:\\Users\\PC\\AppData\\Roaming\\npm\\node_modules\\@nuskey8\\godot-docs-mcp\\esm\\index.js"],
+      "env": {}
+    }
+  }
+}
