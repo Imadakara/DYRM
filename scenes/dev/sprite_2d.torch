@@ -1,0 +1,71 @@
+[orchestration type="OScript" load_steps=5 format=4 uid="uid://bjwfon7dd8rth"]
+
+[obj type="OScriptFunction" id="OScriptFunction_4cdcb"]
+guid = "F00A9CCD-4D43-4F05-91A5-49C608E84132"
+method = {
+"name": &"_init",
+"flags": 73
+}
+id = 1
+
+[obj type="OScriptGraph" id="OScriptGraph_orolp"]
+graph_name = &"EventGraph"
+flags = 8
+nodes = Array[int]([0, 1])
+functions = Array[int]([1])
+
+[obj type="OScriptNodePrintString" id="OScriptNodePrintString_yoddn"]
+id = 0
+position = Vector2(62.7414436340332, 125.66886138916016)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"Text",
+"type": 4,
+"flags": 2,
+"dv": "Hello, world!"
+}, {
+"pin_name": &"PrintToScreen",
+"type": 1,
+"flags": 2,
+"dv": true
+}, {
+"pin_name": &"PrintToLog",
+"type": 1,
+"flags": 2,
+"dv": true
+}, {
+"pin_name": &"TextColor",
+"type": 20,
+"flags": 2,
+"dv": Color(1, 1, 1, 1)
+}, {
+"pin_name": &"Duration",
+"type": 3,
+"flags": 2,
+"dv": 2,
+"gdv": 0
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}])
+
+[obj type="OScriptNodeEvent" id="OScriptNodeEvent_dux0d"]
+function_id = "F00A9CCD-4D43-4F05-91A5-49C608E84132"
+id = 1
+position = Vector2(-140, 120)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}])
+
+[resource]
+base_type = &"Sprite2D"
+brief_description = "Empty template suitable for all Objects"
+functions = Array[OScriptFunction]([SubResource("OScriptFunction_4cdcb")])
+connections = Array[int]([1, 0, 0, 0])
+nodes = Array[OScriptNode]([SubResource("OScriptNodePrintString_yoddn"), SubResource("OScriptNodeEvent_dux0d")])
+graphs = Array[OScriptGraph]([SubResource("OScriptGraph_orolp")])
