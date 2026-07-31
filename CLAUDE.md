@@ -92,6 +92,20 @@ file per visual-node category (`signals.md`, `flow-control.md`, `functions.md`, 
 `~/.claude/skills/godot/skills/godot-orchestrator/`) when helping with Orchestrator implementation
 questions — it knows how this clone is organized and how to search it.
 
+**Code ↔ Orchestrator bridge (confirmed working, 2026-07-31)**: the division of labor above needs a
+way for a GDScript system and an Orchestrator graph to talk to each other. The pattern — a plain
+Godot **signal** declared on each side, crossed with an ordinary `connect_signal` at the scene level
+(exactly like wiring two GDScript nodes; Godot doesn't distinguish an Orchestration's methods from
+GDScript's) — is proven end-to-end in `scenes/dev/orchestrator_bridge_demo.tscn`:
+`CodeSide` (`src/dev/orchestrator_bridge_code_side.gd`) emits `code_ping(counter)`, the
+hand-authored `scenes/dev/orchestrator_bridge_demo.torch` on `OrchestratorSide` catches it, doubles
+the value inside the graph, and emits its own `orchestrator_pong(value)` back. Press **E**
+(`interact`, already bound project-wide) while the scene is running to trigger it live; both status
+`Label`s update. Reuse this exact shape — signal out, signal back, `connect_signal` in between —
+for any future code/graph collaboration rather than inventing a new crossing mechanism per feature.
+Full format details (how a `.torch` file is structured, what's confirmed vs. still
+reverse-engineered) live in the `godot:godot-orchestrator` skill, not here.
+
 ## Code conventions (apply project-wide)
 
 - Static typing is mandatory for every variable, parameter and return value. `Variant` only where
