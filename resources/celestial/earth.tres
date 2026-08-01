@@ -1,29 +1,24 @@
-[gd_resource type="Resource" script_class="CelestialBodyData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CelestialBodyData" format=3 uid="uid://dxscbf8c5cjim"]
 
-[ext_resource type="Script" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
-[ext_resource type="Script" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
+[ext_resource type="Script" uid="uid://rb3v0yjyfm3a" path="res://src/environment/solar_system/celestial_body_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://dlt4j0fwmfm5m" path="res://src/environment/solar_system/orbital_elements.gd" id="2"]
 
 [sub_resource type="Resource" id="Orbit_Earth"]
 script = ExtResource("2")
 semi_major_axis_km = 149598261.1504425
 eccentricity = 0.01671123
-inclination_deg = -0.00001531
+inclination_deg = -1.531e-05
 mean_longitude_deg = 100.46457166
 longitude_perihelion_deg = 102.93768193
-longitude_node_deg = 0.0
 period_days = 365.256
 
 [resource]
 script = ExtResource("1")
 display_name = "Земля"
 body_id = &"earth"
-body_type = 1
-parent_body = &""
 radius_km = 6371.0
 orbit = SubResource("Orbit_Earth")
 rotation_period_days = 0.99727
 axial_tilt_deg = 23.44
 albedo = 0.306
 base_color = Color(0.290196, 0.498039, 0.709804, 1)
-emissive = false
-brightness = 1.0

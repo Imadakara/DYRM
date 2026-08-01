@@ -58,6 +58,54 @@ by eye).
 | Target | Desktop, 1920×1080, ≥60 FPS on a laptop iGPU |
 | API compatibility | Use only API stable since **Godot 4.2**, even though the project builds on 4.7 |
 
+## Visual scripting (Godot Orchestrator)
+
+The "no third-party addons" constraint above has one deliberate, owner-decided exception:
+**Godot Orchestrator** (`addons/orchestrator/`, a GDExtension-based visual-scripting plug-in,
+`CraterCrash/godot-orchestrator`), currently installed on the `orchestrator_test` branch, not yet
+merged to `main`/`station_experiments`. Godot 4 dropped its own `VisualScript` at the 4.0 release
+with no built-in replacement; Orchestrator fills that gap and is the project owner's tool of choice
+for building simple interactive objects without writing GDScript by hand.
+
+**Division of labor**: systems with real state, math, or cross-system coordination (orbital
+mechanics, station structure, player locomotion, anything covered by an existing ТЗ) are still
+built as GDScript per every convention above, with Claude Code's help as usual. Simple,
+self-contained interactive objects — doors, switches, levers, one-off triggers — are built directly
+by the project owner as Orchestrator graphs, independently. Don't author or restructure
+Orchestrator graphs unprompted; help with them the same way as any other implementation question,
+when asked.
+
+**Docs**: a full clone of the official Orchestrator documentation site (Docusaurus source under
+`docs/`, not the rendered site) lives outside this repo, since the same plug-in and docs apply to
+any Godot project on this machine, not just DYRM:
+
+```
+C:\Users\PC\Documents\Development\godot-orchestrator-docs
+```
+
+Layout: `docs/getting-started/` (concepts, installation, design philosophy), `docs/nodes/` — one
+file per visual-node category (`signals.md`, `flow-control.md`, `functions.md`, `variables.md`,
+`scene.md`, `autoloads.md`, `singletons.md`, `resources.md`, `dialogue.md`, `math.md`, `arrays.md`,
+`dictionary.md`, `events.md`, `input.md`, `memory.md`, `properties.md`, `utilities.md`,
+`constants.md`, `comments.md`, `all_nodes.md`), `docs/about/` (FAQ, requirements, licensing),
+`docs/community/`. Use the `godot:godot-orchestrator` skill (grouped in the global `godot` plugin,
+`~/.claude/skills/godot/skills/godot-orchestrator/`) when helping with Orchestrator implementation
+questions — it knows how this clone is organized and how to search it.
+
+**Code ↔ Orchestrator bridge (confirmed working, 2026-07-31)**: the division of labor above needs a
+way for a GDScript system and an Orchestrator graph to talk to each other. The pattern — a plain
+Godot **signal** declared on each side, crossed with an ordinary `connect_signal` at the scene level
+(exactly like wiring two GDScript nodes; Godot doesn't distinguish an Orchestration's methods from
+GDScript's) — is proven end-to-end in `scenes/dev/orchestrator_bridge_demo.tscn`:
+`CodeSide` (`src/dev/orchestrator_bridge_code_side.gd`) emits `code_ping(counter)`, the
+hand-authored `scenes/dev/orchestrator_bridge_demo.torch` on `OrchestratorSide` catches it, doubles
+the value inside the graph, and emits its own `orchestrator_pong(value)` back. Press **E**
+(`interact`, already bound project-wide) while the scene is running to trigger it live; both status
+`Label`s update. Reuse this exact shape — signal out, signal back, `connect_signal` in between —
+for any future code/graph collaboration rather than inventing a new crossing mechanism per feature.
+Full format details (how a `.torch` file is structured, what's confirmed vs. still
+reverse-engineered) live in the `godot:godot-orchestrator` skill, not here.
+
 ## Code conventions (apply project-wide)
 
 - Static typing is mandatory for every variable, parameter and return value. `Variant` only where

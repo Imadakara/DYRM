@@ -1,0 +1,182 @@
+[orchestration type="OScript" load_steps=10 format=3]
+
+[obj type="OScriptFunction" id="OScriptFunction_bridge_ping"]
+guid = "A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6"
+method = {
+"name": &"_on_code_side_code_ping",
+"args": [{
+"name": &"counter",
+"type": 2
+}]
+}
+id = 0
+
+[obj type="OScriptGraph" id="OScriptGraph_event"]
+graph_name = &"EventGraph"
+offset = Vector2(0, 0)
+flags = 8
+nodes = Array[int]([0, 1, 2, 3, 4, 5])
+functions = Array[int]([0])
+
+[obj type="OScriptNodeEvent" id="OScriptNodeEvent_ping"]
+function_id = "A1B2C3D4-E5F6-47A8-9B0C-D1E2F3A4B5C6"
+id = 0
+size = Vector2(260, 87)
+position = Vector2(60, -80)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"counter",
+"type": 2,
+"dir": 1,
+"flags": 2
+}])
+
+[obj type="OScriptNodeOperator" id="OScriptNodeOperator_mul2"]
+op = 8
+code = &"*"
+name = &"Multiply"
+left_type = 2
+left_type_name = &"int"
+right_type = 2
+right_type_name = &"int"
+return_type = 2
+id = 1
+size = Vector2(184, 90)
+position = Vector2(380, -80)
+pin_data = Array[Dictionary]([{
+"pin_name": &"a",
+"type": 2,
+"flags": 2
+}, {
+"pin_name": &"b",
+"type": 2,
+"flags": 2,
+"dv": 2
+}, {
+"pin_name": &"result",
+"type": 2,
+"dir": 1,
+"flags": 2
+}])
+
+[obj type="OScriptNodeVariableSet" id="OScriptNodeVariableSet_lastcounter"]
+variable_name = &"last_counter"
+id = 2
+size = Vector2(180, 87)
+position = Vector2(620, -160)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"last_counter",
+"type": 2,
+"flags": 2050,
+"usage": 4102
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"value",
+"type": 2,
+"dir": 1,
+"flags": 1026,
+"usage": 4102
+}])
+
+[obj type="OScriptNodeSceneNode" id="OScriptNodeSceneNode_statuslabel"]
+node_path = NodePath("StatusLabel")
+target_class_name = "Label"
+id = 4
+size = Vector2(196, 60)
+position = Vector2(620, 40)
+pin_data = Array[Dictionary]([{
+"pin_name": &"StatusLabel",
+"type": 24,
+"dir": 1,
+"flags": 2050,
+"target_class": "Label"
+}])
+
+[obj type="OScriptNodeCallMemberFunction" id="OScriptNodeCallMemberFunction_settext"]
+function_name = &"set_text"
+target_class_name = "Label"
+target_type = 24
+flags = 520
+method = {
+"name": &"set_text",
+"args": [{
+"name": &"text",
+"type": 4
+}]
+}
+chain = false
+id = 5
+size = Vector2(230, 114)
+position = Vector2(900, -160)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"target",
+"type": 24,
+"flags": 2050,
+"label": "Label",
+"target_class": "Label"
+}, {
+"pin_name": &"text",
+"type": 4,
+"flags": 2,
+"dv": "Orchestrator: ping received"
+}])
+
+[obj type="OScriptNodeEmitSignal" id="OScriptNodeEmitSignal_pong"]
+signal_name = "orchestrator_pong"
+id = 3
+size = Vector2(180, 87)
+position = Vector2(1160, -80)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"value",
+"type": 2,
+"flags": 2
+}])
+
+[obj type="OScriptSignal" id="OScriptSignal_pong"]
+method = {
+"name": &"orchestrator_pong",
+"args": [{
+"name": &"value",
+"type": 2
+}]
+}
+signal_name = &"orchestrator_pong"
+
+[obj type="OScriptVariable" id="OScriptVariable_lastcounter"]
+name = "last_counter"
+category = "Default"
+classification = "type:int"
+type = 2
+default_value = 0
+
+[resource]
+base_type = &"Node"
+variables = Array[OScriptVariable]([SubResource("OScriptVariable_lastcounter")])
+functions = Array[OScriptFunction]([SubResource("OScriptFunction_bridge_ping")])
+signals = Array[OScriptSignal]([SubResource("OScriptSignal_pong")])
+connections = Array[int]([0, 0, 2, 0, 2, 0, 5, 0, 5, 0, 3, 0, 0, 1, 1, 0, 1, 0, 2, 1, 1, 0, 3, 1, 4, 0, 5, 1])
+nodes = Array[OScriptNode]([SubResource("OScriptNodeEvent_ping"), SubResource("OScriptNodeOperator_mul2"), SubResource("OScriptNodeVariableSet_lastcounter"), SubResource("OScriptNodeSceneNode_statuslabel"), SubResource("OScriptNodeCallMemberFunction_settext"), SubResource("OScriptNodeEmitSignal_pong")])
+graphs = Array[OScriptGraph]([SubResource("OScriptGraph_event")])

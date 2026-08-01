@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/dev/orchestrator_bridge_code_side.gd" id="1_o8ufr"]
+[ext_resource type="Script" path="res://scenes/dev/orchestrator_bridge_demo.torch" id="2_7tf54"]
+
+[node name="root" type="Node" unique_id=898329092]
+
+[node name="CodeSide" type="Node" parent="." unique_id=882013552]
+script = ExtResource("1_o8ufr")
+
+[node name="StatusLabel" type="Label" parent="CodeSide" unique_id=183324009]
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 40.0
+offset_bottom = 40.0
+text = "code side"
+
+[node name="OrchestratorSide" type="Node" parent="." unique_id=720355695]
+script = ExtResource("2_7tf54")
+
+[node name="StatusLabel" type="Label" parent="OrchestratorSide" unique_id=1598826064]
+offset_left = 40.0
+offset_top = 80.0
+offset_right = 40.0
+offset_bottom = 80.0
+text = "orchestrator side"
+
+[connection signal="code_ping" from="CodeSide" to="OrchestratorSide" method="_on_code_side_code_ping"]
+[connection signal="orchestrator_pong" from="OrchestratorSide" to="CodeSide" method="receive_from_orchestrator"]
