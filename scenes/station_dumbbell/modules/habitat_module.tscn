@@ -4,6 +4,8 @@
 [ext_resource type="Material" path="res://materials/mat_interior.tres" id="2"]
 [ext_resource type="Resource" path="res://resources/dumbbell_station_default.tres" id="3"]
 [ext_resource type="Script" path="res://src/environment/station/station_connector.gd" id="4_i2t5v"]
+[ext_resource type="Script" path="res://src/interaction/light_switch.gd" id="5_2mu60"]
+[ext_resource type="Script" path="res://scenes/station_dumbbell/modules/habitat_light_switch_logic.torch" id="6_psttj"]
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_2mu60"]
 _surfaces = [{
@@ -343,3 +345,23 @@ mesh = SubResource("ArrayMesh_v47ao")
 transform = Transform3D(1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 55, 0)
 script = ExtResource("4_i2t5v")
 connector_id = &"Connector_Corridor"
+
+[node name="LightSwitch" type="Area3D" parent="." unique_id=656624824]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 57.5, 3.85)
+script = ExtResource("5_2mu60")
+prompt_text = "Включить свет"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LightSwitch" unique_id=933897698]
+
+[node name="Plate" type="MeshInstance3D" parent="LightSwitch" unique_id=898539379]
+
+[node name="SwitchLogic" type="Node" parent="LightSwitch" unique_id=555259822]
+script = ExtResource("6_psttj")
+
+[node name="Light" type="OmniLight3D" parent="LightSwitch" unique_id=590538380]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.3, -3.85)
+visible = false
+light_energy = 2.0
+omni_range = 8.0
+
+[connection signal="switch_toggle_requested" from="LightSwitch" to="LightSwitch/SwitchLogic" method="_on_switch_toggle_requested"]
