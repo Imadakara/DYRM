@@ -106,6 +106,20 @@ for any future code/graph collaboration rather than inventing a new crossing mec
 Full format details (how a `.torch` file is structured, what's confirmed vs. still
 reverse-engineered) live in the `godot:godot-orchestrator` skill, not here.
 
+**Known limitation (2026-08-03)**: an Orchestration's `base_type` must be a native Godot class
+(`Node`, `Area3D`, ...) — tried `base_type = &"Interactable"` to make a pure-graph object satisfy
+this project's `is Interactable` check and override `interact()` with zero GDScript; it fails
+silently (scene loads with no errors, but the script never actually attaches — `get_script()` is
+`null` at runtime). So a graph can't stand in directly for `Interactable`/`Door`-style custom-class
+inheritance — a real interactable still needs a thin GDScript wrapper (`extends Interactable`) that
+bridges to a graph via plain signals, same crossing mechanism as above. **Confirmed working**:
+`scenes/dev/orchestrator_light_switch_demo.tscn` — `src/dev/orchestrator_light_switch_wrapper.gd`
+overrides `interact()` (keeping the inherited `can_interact()`/`enabled` gate intact) and just
+emits a signal; the actual toggle-a-light logic lives entirely in a `.torch` on a child node. Live
+round-trip verified: `is Interactable == true`, two `interact()` calls flip the light and internal
+`is_on` correctly, `enabled = false` correctly blocks the third call. Reuse this exact shape for any
+future real interactable built with Orchestrator. Detail in the `godot:godot-orchestrator` skill.
+
 ## Code conventions (apply project-wide)
 
 - Static typing is mandatory for every variable, parameter and return value. `Variant` only where

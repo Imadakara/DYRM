@@ -1,10 +1,19 @@
 [gd_scene format=3]
 
+[ext_resource type="Script" path="res://src/dev/orchestrator_light_switch_wrapper.gd" id="1_h8ml0"]
+[ext_resource type="Script" path="res://scenes/dev/orchestrator_light_switch_demo.torch" id="2_ippoh"]
+
 [node name="root" type="Node3D" unique_id=882300552]
 
 [node name="LightSwitch" type="Area3D" parent="." unique_id=439632969]
+script = ExtResource("1_h8ml0")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="LightSwitch" unique_id=893629778]
 
 [node name="Light" type="OmniLight3D" parent="LightSwitch" unique_id=1355327664]
 visible = false
+
+[node name="SwitchLogic" type="Node" parent="LightSwitch" unique_id=1518834272]
+script = ExtResource("2_ippoh")
+
+[connection signal="switch_toggle_requested" from="LightSwitch" to="LightSwitch/SwitchLogic" method="_on_switch_toggle_requested"]

@@ -1,0 +1,246 @@
+[orchestration type="OScript" load_steps=13 format=3]
+
+[obj type="OScriptFunction" id="OScriptFunction_toggle"]
+guid = "C3D4E5F6-A7B8-49C0-9D1E-F2A3B4C5D6E7"
+method = {
+"name": &"_on_switch_toggle_requested"
+}
+id = 0
+
+[obj type="OScriptGraph" id="OScriptGraph_event"]
+graph_name = &"EventGraph"
+offset = Vector2(0, 0)
+flags = 8
+nodes = Array[int]([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+functions = Array[int]([0])
+
+[obj type="OScriptNodeEvent" id="OScriptNodeEvent_toggle"]
+function_id = "C3D4E5F6-A7B8-49C0-9D1E-F2A3B4C5D6E7"
+id = 0
+size = Vector2(260, 60)
+position = Vector2(0, -160)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}])
+
+[obj type="OScriptNodeVariableGet" id="OScriptNodeVariableGet_ison"]
+variable_name = &"is_on"
+id = 1
+size = Vector2(150, 60)
+position = Vector2(0, -40)
+pin_data = Array[Dictionary]([{
+"pin_name": &"value",
+"type": 1,
+"dir": 1,
+"flags": 2050,
+"label": "is_on",
+"usage": 4102
+}])
+
+[obj type="OScriptNodeBranch" id="OScriptNodeBranch_toggle"]
+id = 2
+size = Vector2(186, 87)
+position = Vector2(260, -160)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 516,
+"label": "if [condition]"
+}, {
+"pin_name": &"condition",
+"type": 1,
+"flags": 2,
+"dv": false
+}, {
+"pin_name": &"true",
+"dir": 1,
+"flags": 516
+}, {
+"pin_name": &"false",
+"dir": 1,
+"flags": 516
+}])
+
+[obj type="OScriptNodeVariableSet" id="OScriptNodeVariableSet_off"]
+variable_name = &"is_on"
+id = 3
+size = Vector2(159, 87)
+position = Vector2(520, -240)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"is_on",
+"type": 1,
+"flags": 2050,
+"usage": 4102
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"value",
+"type": 1,
+"dir": 1,
+"flags": 1026,
+"usage": 4102
+}])
+
+[obj type="OScriptNodeSceneNode" id="OScriptNodeSceneNode_light"]
+node_path = NodePath("../Light")
+target_class_name = "OmniLight3D"
+id = 4
+size = Vector2(196, 60)
+position = Vector2(260, 40)
+pin_data = Array[Dictionary]([{
+"pin_name": &"Light",
+"type": 24,
+"dir": 1,
+"flags": 2050,
+"target_class": "OmniLight3D"
+}])
+
+[obj type="OScriptNodeCallMemberFunction" id="OScriptNodeCallMemberFunction_off"]
+function_name = &"set_visible"
+target_class_name = "OmniLight3D"
+target_type = 24
+flags = 520
+method = {
+"name": &"set_visible",
+"args": [{
+"name": &"visible",
+"type": 1
+}]
+}
+chain = false
+id = 5
+size = Vector2(210, 114)
+position = Vector2(780, -240)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"target",
+"type": 24,
+"flags": 2050,
+"label": "OmniLight3D",
+"target_class": "OmniLight3D"
+}, {
+"pin_name": &"visible",
+"type": 1,
+"flags": 2,
+"dv": false
+}])
+
+[obj type="OScriptNodeVariableSet" id="OScriptNodeVariableSet_on"]
+variable_name = &"is_on"
+id = 6
+size = Vector2(159, 87)
+position = Vector2(520, 40)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"is_on",
+"type": 1,
+"flags": 2050,
+"usage": 4102
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"value",
+"type": 1,
+"dir": 1,
+"flags": 1026,
+"usage": 4102
+}])
+
+[obj type="OScriptNodeCallMemberFunction" id="OScriptNodeCallMemberFunction_on"]
+function_name = &"set_visible"
+target_class_name = "OmniLight3D"
+target_type = 24
+flags = 520
+method = {
+"name": &"set_visible",
+"args": [{
+"name": &"visible",
+"type": 1
+}]
+}
+chain = false
+id = 7
+size = Vector2(210, 114)
+position = Vector2(780, 40)
+pin_data = Array[Dictionary]([{
+"pin_name": &"ExecIn",
+"flags": 4
+}, {
+"pin_name": &"ExecOut",
+"dir": 1,
+"flags": 4
+}, {
+"pin_name": &"target",
+"type": 24,
+"flags": 2050,
+"label": "OmniLight3D",
+"target_class": "OmniLight3D"
+}, {
+"pin_name": &"visible",
+"type": 1,
+"flags": 2,
+"dv": true
+}])
+
+[obj type="OScriptNodeComposeFrom" id="OScriptNodeComposeFrom_false"]
+id = 8
+size = Vector2(200, 60)
+position = Vector2(520, -400)
+pin_data = Array[Dictionary]([{
+"pin_name": &"from",
+"type": 1,
+"flags": 2,
+"dv": false
+}, {
+"pin_name": &"value",
+"type": 1,
+"dir": 1,
+"flags": 2
+}])
+
+[obj type="OScriptNodeComposeFrom" id="OScriptNodeComposeFrom_true"]
+id = 9
+size = Vector2(200, 60)
+position = Vector2(520, 200)
+pin_data = Array[Dictionary]([{
+"pin_name": &"from",
+"type": 1,
+"flags": 2,
+"dv": true
+}, {
+"pin_name": &"value",
+"type": 1,
+"dir": 1,
+"flags": 2
+}])
+
+[obj type="OScriptVariable" id="OScriptVariable_ison"]
+name = "is_on"
+category = "Default"
+classification = "type:bool"
+type = 1
+default_value = false
+
+[resource]
+base_type = &"Node"
+variables = Array[OScriptVariable]([SubResource("OScriptVariable_ison")])
+functions = Array[OScriptFunction]([SubResource("OScriptFunction_toggle")])
+connections = Array[int]([0, 0, 2, 0, 1, 0, 2, 1, 2, 0, 3, 0, 3, 0, 5, 0, 4, 0, 5, 1, 8, 0, 3, 1, 2, 1, 6, 0, 6, 0, 7, 0, 4, 0, 7, 1, 9, 0, 6, 1])
+nodes = Array[OScriptNode]([SubResource("OScriptNodeEvent_toggle"), SubResource("OScriptNodeVariableGet_ison"), SubResource("OScriptNodeBranch_toggle"), SubResource("OScriptNodeVariableSet_off"), SubResource("OScriptNodeSceneNode_light"), SubResource("OScriptNodeCallMemberFunction_off"), SubResource("OScriptNodeVariableSet_on"), SubResource("OScriptNodeCallMemberFunction_on"), SubResource("OScriptNodeComposeFrom_false"), SubResource("OScriptNodeComposeFrom_true")])
+graphs = Array[OScriptGraph]([SubResource("OScriptGraph_event")])
